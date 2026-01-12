@@ -441,3 +441,43 @@ body.sidebar-collapsed .sidebar .mitem::before{
     font-size: 15px !important;
   }
 }
+/* overlay */
+.overlay{
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,.45);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .2s ease;
+  z-index: 9998;
+}
+
+/* no mobile, sidebar vira drawer */
+body.is-mobile .app{ display:block !important; }
+
+body.is-mobile .sidebar{
+  position: fixed !important;
+  top: 0; left: 0; bottom: 0;
+  width: 240px !important;
+  transform: translateX(-105%);
+  transition: transform .2s ease;
+  z-index: 9999;
+}
+
+body.is-mobile.menu-open .sidebar{ transform: translateX(0); }
+
+body.is-mobile.menu-open .overlay{
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* main ocupa tudo */
+body.is-mobile .main{ padding: 12px 12px 18px !important; }
+
+/* 1 coluna no mobile */
+body.is-mobile .grid,
+body.is-mobile .grid.two,
+body.is-mobile .grid.three{
+  grid-template-columns: 1fr !important;
+  gap: 10px !important;
+}
