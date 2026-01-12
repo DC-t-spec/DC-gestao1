@@ -238,3 +238,206 @@ select option{color:#111}
   padding: 14px;
   box-shadow: 0 12px 30px rgba(0,0,0,.35);
 }
+/* =========================
+   MOBILE UX UPGRADE
+   ========================= */
+
+:root{
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* tornar tudo mais “compacto” no mobile */
+@media (max-width: 860px){
+
+  /* layout geral */
+  body{ font-size: 15px; }
+
+  .app{
+    display: block !important;
+  }
+
+  /* sidebar vira barra inferior */
+  .sidebar{
+    position: fixed;
+    left: 0; right: 0; bottom: 0;
+    height: 64px;
+    padding: 8px 10px calc(8px + var(--safe-bottom));
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    justify-content: space-between;
+    overflow-x: auto;
+    z-index: 9999;
+    border-top: 1px solid rgba(255,255,255,.12);
+    border-right: none !important;
+  }
+
+  /* esconder logo grande / textos longos do menu no mobile (opcional) */
+  .brand, .sidebar .subtitle, .sidebar .big-only { display:none !important; }
+
+  /* botões do menu: compactos e fáceis de clicar */
+  .mitem{
+    flex: 1 0 auto;
+    min-width: 66px;
+    padding: 10px 10px;
+    border-radius: 14px;
+    font-size: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    white-space: nowrap;
+  }
+
+  /* área principal precisa de espaço para não ficar escondida atrás da barra inferior */
+  .main{
+    padding: 12px 12px 92px !important;
+  }
+
+  /* header mais compacto */
+  .topbar{
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    padding: 10px 12px !important;
+    border-bottom: 1px solid rgba(255,255,255,.08);
+    backdrop-filter: blur(8px);
+  }
+
+  /* grids viram 1 coluna */
+  .grid,
+  .grid.two,
+  .grid.three{
+    display: grid;
+    grid-template-columns: 1fr !important;
+    gap: 10px !important;
+  }
+
+  /* cards mais “apertados” e alinhados */
+  .card{
+    padding: 12px !important;
+    border-radius: 16px !important;
+  }
+
+  /* listas e itens mais próximos */
+  .list{ gap: 10px !important; }
+  .item{ padding: 12px !important; border-radius: 16px !important; }
+
+  /* botões full width no mobile quando fizer sentido */
+  .btn.big, .btn.full{
+    width: 100% !important;
+  }
+
+  /* inputs maiores e mais fáceis de tocar */
+  .input{
+    padding: 12px 12px !important;
+    border-radius: 14px !important;
+    font-size: 15px !important;
+  }
+
+  /* catálogo e carrinho (vendas) em coluna */
+  .sales-layout{
+    display: grid !important;
+    grid-template-columns: 1fr !important;
+    gap: 12px !important;
+  }
+
+  /* cards do produto no catálogo */
+  .pcard{
+    border-radius: 16px !important;
+  }
+
+  /* modal responsivo */
+  .modal-card{
+    width: min(560px, 96vw) !important;
+    max-height: 86vh;
+    overflow: auto;
+  }
+}
+/* =========================
+   MOBILE: MENU ESQUERDA + CONTEÚDO DIREITA (COLAPSÁVEL)
+   ========================= */
+
+:root{
+  --sidebar-w: 240px;
+  --sidebar-w-collapsed: 72px;
+}
+
+/* Base layout (desktop e mobile) */
+.app{
+  display: grid;
+  grid-template-columns: var(--sidebar-w) 1fr;
+  min-height: 100vh;
+}
+
+.sidebar{
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  overflow-y: auto;
+  border-right: 1px solid rgba(255,255,255,.12);
+}
+
+/* Quando minimiza */
+body.sidebar-collapsed .app{
+  grid-template-columns: var(--sidebar-w-collapsed) 1fr;
+}
+
+body.sidebar-collapsed .sidebar{
+  width: var(--sidebar-w-collapsed);
+}
+
+/* Esconder textos no menu minimizado (fica só ícones) */
+body.sidebar-collapsed .sidebar .mitem{
+  justify-content: center;
+  gap: 0;
+  padding: 12px 8px;
+}
+body.sidebar-collapsed .sidebar .mitem span.label{
+  display: none;
+}
+
+/* Se o teu botão do menu não usa <span class="label">,
+   então faz assim: esconder tudo depois do emoji */
+body.sidebar-collapsed .sidebar .mitem{
+  font-size: 0;          /* esconde texto */
+}
+body.sidebar-collapsed .sidebar .mitem::before{
+  content: attr(data-ico);
+  font-size: 16px;       /* mostra ícone */
+}
+
+/* Ajuste opcional: coloca data-ico nos botões do menu (ver abaixo) */
+
+
+/* =========================
+   MOBILE TUNING
+   ========================= */
+@media (max-width: 860px){
+
+  :root{
+    --sidebar-w: 210px;               /* menu um pouco menor no celular */
+    --sidebar-w-collapsed: 62px;
+  }
+
+  .main{
+    padding: 12px 12px 16px !important;
+  }
+
+  /* cards/grids em 1 coluna no celular */
+  .grid, .grid.two, .grid.three{
+    grid-template-columns: 1fr !important;
+    gap: 10px !important;
+  }
+
+  .card, .item{
+    padding: 12px !important;
+    border-radius: 16px !important;
+  }
+
+  .input{
+    padding: 12px 12px !important;
+    border-radius: 14px !important;
+    font-size: 15px !important;
+  }
+}
