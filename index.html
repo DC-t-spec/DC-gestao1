@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="en">
+
+  <head>
+    <meta charset="UTF-8">
+    <title>DC project</title>
+    <link rel="stylesheet" href="./style.css">
+
+  </head>
+    
+  <body>
+  <div class="app">
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="logo">DC</div>
+      <div>
+        <div class="brand-title">Gestão Fácil</div>
+        <div class="brand-sub">Offline + Online</div>
+      </div>
+    </div>
+
+    <nav class="menu">
+      <button class="mitem active" data-page="home">🏠 Home</button>
+      <button class="mitem" data-page="vendas">🛒 Vendas</button>
+      <button class="mitem" data-page="compras">📦 Compras</button>
+      <button class="mitem" data-page="clientes">👥 Clientes</button>
+      <button class="mitem" data-page="produtos">🧾 Produtos</button>
+      <button class="mitem" data-page="armazem">🏬 Armazém</button>
+      <button class="mitem" data-page="relatorios">📊 Relatórios</button>
+      <button class="mitem" data-page="fiscal">🧾 Fiscal</button>
+      <button class="mitem" data-page="config">⚙️ Config</button>
+      <button class="mitem" data-page="suporte">🆘 Suporte</button>
+    </nav>
+
+    <div class="sidefoot">
+      <div class="pill" id="syncState">Modo: Offline</div>
+      <div class="pill subtle" id="deviceState">📱/💻 Responsivo</div>
+    </div>
+  </aside>
+
+  <main class="main">
+    <header class="topbar">
+      <div class="crumb">
+        <h1 id="pageTitle">Home</h1>
+        <p id="pageDesc">Dashboard geral + contas de pagamento</p>
+      </div>
+
+      <div class="top-actions">
+        <button class="btn ghost" id="btnSync">Sincronizar</button>
+        <button class="btn" id="btnQuickSale">+ Venda</button>
+      </div>
+    </header>
+
+    <!-- HOME -->
+    <section class="page active" id="home">
+      <div class="grid kpis">
+        <div class="card">
+          <div class="label">Vendas hoje</div>
+          <div class="kpi" id="kpiSalesToday">0.00 MT</div>
+          <div class="muted" id="kpiSalesTodayCount">0 vendas</div>
+        </div>
+        <div class="card">
+          <div class="label">Compras hoje</div>
+          <div class="kpi" id="kpiBuysToday">0.00 MT</div>
+          <div class="muted" id="kpiBuysTodayCount">0 compras</div>
+        </div>
+        <div class="card">
+          <div class="label">Lucro hoje (estim.)</div>
+          <div class="kpi" id="kpiProfitToday">0.00 MT</div>
+          <div class="muted">Venda - custo (aquisição)</div>
+        </div>
+      </div>
+
+      <div class="grid two">
+        <div class="card">
+          <div class="row between">
+            <h2>Contas / Formas de pagamento</h2>
+            <button class="btn" id="btnAddAccount">+ Nova conta</button>
+          </div>
+          <div id="accountsList" class="list"></div>
+        </div>
+
+        <div class="card">
+          <div class="row between">
+            <h2>Alertas de stock</h2>
+            <span class="badge">Stock mínimo</span>
+          </div>
+          <div id="lowStockList" class="list"></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="row between">
+          <h2>Últimas vendas</h2>
+          <button class="btn ghost" data-nav="vendas">Ver tudo</button>
+        </div>
+        <div id="lastSales" class="list"></div>
+      </div>
+    </section>
+
+    <!-- VENDAS -->
+    <section class="page" id="vendas">
+      <div class="split">
+        <div class="card pane">
+          <div class="row between">
+            <h2>Catálogo</h2>
+            <input class="input" id="catalogSearch" placeholder="Pesquisar produto..." />
+          </div>
+          <div id="catalogList" class="catalog"></div>
+        </div>
+
+        <div class="card pane">
+          <div class="row between">
+            <h2>Carrinho</h2>
+            <button class="btn danger" id="btnClearCart">Limpar</button>
+          </div>
+
+          <div class="form">
+            <div class="field">
+              <label>Cliente</label>
+              <select class="input" id="saleCustomer"></select>
+            </div>
+            <div class="field">
+              <label>Conta (pagamento)</label>
+              <select class="input" id="saleAccount"></select>
+            </div>
+            <div class="field">
+              <label>Data</label>
+              <input class="input" type="date" id="saleDate" />
+            </div>
+          </div>
+
+          <div id="cartList" class="list"></div>
+
+          <div class="totals">
+            <div class="row between">
+              <span class="muted">Total</span>
+              <strong id="cartTotal">0.00 MT</strong>
+            </div>
+            <button class="btn big" id="btnCheckout">Finalizar venda</button>
+            <small class="muted">Sem desconto nesta versão (como pediste).</small>
+          </div>
+
+          <hr />
+
+          <h3>Vendas (histórico)</h3>
+          <div class="row gap">
+            <input class="input" type="date" id="salesFilterDate" />
+            <button class="btn ghost" id="btnClearSalesFilter">Limpar</button>
+          </div>
+          <div id="salesList" class="list"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- COMPRAS -->
+    <section class="page" id="compras">
+      <div class="grid two">
+        <div class="card">
+          <div class="row between">
+            <h2>Registar compra (entra no armazém)</h2>
+          </div>
+          <form id="buyForm" class="form2">
+            <div class="field">
+              <label>Fornecedor</label>
+              <input class="input" id="buySupplier" placeholder="Nome do fornecedor" required />
+            </div>
+            <div class="field">
+              <label>Produto</label>
+              <select class="input" id="buyProduct"></select>
+            </div>
+            <div class="field">
+              <label>Quantidade</label>
+              <input class="input" type="number" min="1" step="1" id="buyQty" value="1" required />
+            </div>
+            <div class="field">
+              <label>Preço de aquisição (unit.)</label>
+              <input class="input" type="number" min="0" step="0.01" id="buyCost" required />
+            </div>
+            <div class="field">
+              <label>Conta (pagamento)</label>
+              <select class="input" id="buyAccount"></select>
+            </div>
+            <div class="field">
+              <label>Data</label>
+              <input class="input" type="date" id="buyDate" />
+            </div>
+            <button class="btn big full" type="submit">Salvar compra</button>
+          </form>
+        </div>
+
+        <div class="card">
+          <div class="row between">
+            <h2>Compras (histórico)</h2>
+            <span class="badge">Entradas de stock</span>
+          </div>
+          <div class="row gap">
+            <input class="input" type="date" id="buysFilterDate" />
+            <button class="btn ghost" id="btnClearBuysFilter">Limpar</button>
+          </div>
+          <div id="buysList" class="list"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- CLIENTES -->
+    <section class="page" id="clientes">
+      <div class="grid two">
+        <div class="card">
+          <div class="row between">
+            <h2>Cadastrar cliente</h2>
+          </div>
+          <form id="customerForm" class="form2">
+            <div class="field">
+              <label>Nome</label>
+              <input class="input" id="custName" required placeholder="Ex: Maria S." />
+            </div>
+            <div class="field">
+              <label>Telefone/WhatsApp</label>
+              <input class="input" id="custPhone" placeholder="84xxxxxxx" />
+            </div>
+            <div class="field full">
+              <label>Notas (opcional)</label>
+              <input class="input" id="custNotes" placeholder="Ex: prefere M-Pesa" />
+            </div>
+            <button class="btn big full" type="submit">Salvar cliente</button>
+          </form>
+        </div>
+
+        <div class="card">
+          <div class="row between">
+            <h2>Lista de clientes</h2>
+          </div>
+          <div id="customersList" class="list"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- PRODUTOS -->
+    <section class="page" id="produtos">
+      <div class="grid two">
+        <div class="card">
+          <div class="row between">
+            <h2>Cadastrar produto</h2>
+          </div>
+          <form id="productForm" class="form2">
+            <div class="field">
+              <label>Nome</label>
+              <input class="input" id="prodName" required placeholder="Ex: Arroz 1kg" />
+            </div>
+            <div class="field">
+              <label>Preço de venda</label>
+              <input class="input" type="number" min="0" step="0.01" id="prodPrice" required />
+            </div>
+            <div class="field">
+              <label>Preço de aquisição (referência)</label>
+              <input class="input" type="number" min="0" step="0.01" id="prodCost" required />
+            </div>
+            <div class="field">
+              <label>Stock mínimo</label>
+              <input class="input" type="number" min="0" step="1" id="prodMinStock" value="0" required />
+            </div>
+            <div class="field full">
+              <label>Imagem (URL opcional)</label>
+              <input class="input" id="prodImg" placeholder="https://..." />
+            </div>
+            <div class="field full">
+              <label>Descrição</label>
+              <input class="input" id="prodDesc" placeholder="Descrição curta" />
+            </div>
+
+            <div class="note full" id="profitNote">Lucro esperado: 0.00 MT</div>
+
+            <button class="btn big full" type="submit">Salvar produto</button>
+          </form>
+        </div>
+
+        <div class="card">
+          <div class="row between">
+            <h2>Catálogo (produtos)</h2>
+            <input class="input" id="productSearch" placeholder="Pesquisar..." />
+          </div>
+          <div id="productsList" class="list"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ARMAZÉM -->
+    <section class="page" id="armazem">
+      <div class="card">
+        <div class="row between">
+          <h2>Armazém (stock em tempo real)</h2>
+          <span class="badge">Entradas: compras | Saídas: vendas</span>
+        </div>
+        <div id="warehouseList" class="list"></div>
+      </div>
+    </section>
+
+    <!-- RELATÓRIOS (placeholder V1) -->
+    <section class="page" id="relatorios">
+      <div class="card">
+        <div class="row between">
+          <h2>Relatórios</h2>
+          <span class="badge">V1: base</span>
+        </div>
+        <p class="muted">Nesta V1 já vamos preparar os dados para os 12 relatórios. Em seguida eu ativo a tela completa.</p>
+        <div class="grid two">
+          <div class="card inner">
+            <h3>Resumo rápido</h3>
+            <div id="reportQuick" class="list"></div>
+          </div>
+          <div class="card inner">
+            <h3>Controle de estoque</h3>
+            <div id="reportStock" class="list"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- FISCAL -->
+    <section class="page" id="fiscal">
+      <div class="card">
+        <h2>Fiscal</h2>
+        <p class="muted">Página em desenvolvimento. Em breve: impostos, IVA, relatórios fiscais e faturas.</p>
+      </div>
+    </section>
+
+    <!-- CONFIG -->
+    <section class="page" id="config">
+      <div class="card">
+        <h2>Config</h2>
+        <div class="grid two">
+          <div class="card inner">
+            <h3>Offline / Backup</h3>
+            <div class="row gap">
+              <button class="btn ghost" id="btnExport">Exportar backup (JSON)</button>
+              <label class="btn ghost" for="importFile" style="cursor:pointer;">Importar</label>
+              <input id="importFile" type="file" accept="application/json" style="display:none;" />
+            </div>
+            <div class="row gap" style="margin-top:10px;">
+              <button class="btn danger" id="btnReset">Apagar tudo</button>
+            </div>
+          </div>
+
+          <div class="card inner">
+            <h3>Online (Supabase)</h3>
+            <p class="muted">Cole aqui as chaves para sincronizar multi-dispositivo. Se ficar vazio, funciona só offline.</p>
+            <div class="form2">
+              <div class="field full">
+                <label>SUPABASE_URL</label>
+                <input class="input" id="sbUrl" placeholder="https://xxxx.supabase.co" />
+              </div>
+              <div class="field full">
+                <label>SUPABASE_ANON_KEY</label>
+                <input class="input" id="sbKey" placeholder="eyJ..." />
+              </div>
+              <button class="btn big full" id="btnSaveOnline" type="button">Guardar e ativar online</button>
+              <small class="muted">Depois disso, o botão “Sincronizar” envia/baixa dados.</small>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SUPORTE -->
+    <section class="page" id="suporte">
+      <div class="card">
+        <h2>Suporte</h2>
+        <div class="grid two">
+          <div class="card inner">
+            <h3>FAQ</h3>
+            <ul class="muted">
+              <li>Como registrar uma venda? → Vendas → adicionar no carrinho → finalizar.</li>
+              <li>Como entra stock? → Compras → salvar compra (entra no armazém).</li>
+              <li>Como adicionar formas de pagamento? → Home → Nova conta.</li>
+            </ul>
+          </div>
+          <div class="card inner">
+            <h3>Reportar problema</h3>
+            <textarea class="input" id="issueText" rows="5" placeholder="Descreva o problema..."></textarea>
+            <button class="btn big" id="btnSendIssue">Enviar</button>
+            <div class="muted" id="issueSent" style="margin-top:10px;"></div>
+          </div>
+        </div>
+        <div class="card inner">
+          <h3>Status do sistema</h3>
+          <p class="muted">Nesta V1 (CodePen), o status é “local”. Quando ativarmos o online, teremos status de sincronização.</p>
+        </div>
+      </div>
+    </section>
+  <
+<!-- MODAL -->
+<div class="modal" id="modal">
+  <div class="modal-card">
+    <div class="row between">
+      <h3 id="modalTitle">Modal</h3>
+      <button class="btn ghost" id="modalClose" type="button">Fechar</button>
+    </div>
+    <div id="modalBody"></div>
+  </div>
+</div>
+    <script  src="./script.js"></script>
+
+  </body>
+  
+</html>
