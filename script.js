@@ -1083,3 +1083,9 @@ window.addEventListener("DOMContentLoaded", () => {
     }
   });
 });
+function applyMobileClass(){
+  const isMobile = window.innerWidth <= 900 || window.matchMedia("(pointer: coarse)").matches;
+  document.body.classList.toggle("is-mobile", isMobile);
+}
+window.addEventListener("DOMContentLoaded", applyMobileClass);
+window.addEventListener("resize", applyMobileClass);
