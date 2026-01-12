@@ -1055,3 +1055,31 @@ window.addEventListener("DOMContentLoaded", () => {
     });
   }
 });
+// ... TODO o teu código acima ...
+
+// ===============================
+// MENU MOBILE (drawer)
+// ===============================
+window.addEventListener("DOMContentLoaded", () => {
+  const btn = document.getElementById("sidebarToggle");
+  const overlay = document.getElementById("overlay");
+
+  document.body.classList.remove("menu-open");
+
+  function toggleMenu(){
+    document.body.classList.toggle("menu-open");
+  }
+  function closeMenu(){
+    document.body.classList.remove("menu-open");
+  }
+
+  if(btn) btn.addEventListener("click", toggleMenu);
+  if(overlay) overlay.addEventListener("click", closeMenu);
+
+  document.addEventListener("click", (e) => {
+    const item = e.target.closest(".mitem");
+    if(item && window.matchMedia("(max-width: 860px)").matches){
+      closeMenu();
+    }
+  });
+});
