@@ -1,5 +1,5 @@
 /***********************
- * Gestão Fácil - V1 (JS COMPLETO ORGANIZADO)
+ * Gestão Fácil - V1 (JS COMPLETO CORRIGIDO)
  * Offline + Online (Supabase opcional)
  * + Auto-backup (local snapshots)
  * + Auth (PIN + níveis)
@@ -9,9 +9,9 @@
  * + Menu responsivo (drawer mobile + colapsar sidebar desktop)
  * + Recuperação de PIN (Pergunta/Resposta) + Reset Admin + MustChangePin
  *
- * ✅ Mantém estrutura atual
- * ✅ Acrescentado: Stock Base (stockBaseId + stockFactor) para pacotes consumirem GB
- * ✅ Removido conflito: funções duplicadas de stock (havia 2–3 versões a pisarem-se)
+ * ✅ Sem funções duplicadas
+ * ✅ Um único DOMContentLoaded (1 boot)
+ * ✅ Event delegation onde faz sentido (listas renderizadas)
  ************************/
 
 /* =======================
@@ -52,12 +52,13 @@ let db =
     users: [],
     auth: { currentUserId: null },
 
+
     // DATA
     accounts: [{ id: uid(), nome: "Dinheiro", tipo: "Dinheiro", ativo: true, saldo: 0 }],
     customers: [{ id: uid(), nome: "Cliente balcão", telefone: "", notas: "" }],
     products: [
-      { id: uid(), nome: "Refresco 500ml", precoVenda: 35, precoAquisicaoRef: 22, minStock: 5, img: "", desc: "", ativo: true, stockBaseId: "", stockFactor: 1 },
-      { id: uid(), nome: "Bolo fatia", precoVenda: 50, precoAquisicaoRef: 30, minStock: 3, img: "", desc: "", ativo: true, stockBaseId: "", stockFactor: 1 },
+      { id: uid(), nome: "Refresco 500ml", precoVenda: 35, precoAquisicaoRef: 22, minStock: 5, img: "", desc: "", ativo: true },
+      { id: uid(), nome: "Bolo fatia", precoVenda: 50, precoAquisicaoRef: 30, minStock: 3, img: "", desc: "", ativo: true },
     ],
     inventory: {},
 
@@ -203,73 +204,65 @@ function customerName(id) {
 function productById(id) {
   return db.products.find((p) => p.id === id);
 }
-
-/* =======================
-   ✅ STOCK BASE (PACOTES)
-   - Usa stockBaseId + stockFactor
-   - Pacote consome do stock do produto base (ex: GB)
-======================= */
-function isGbBaseProduct(p) {
-  return !!p && (p.nome || "").trim().toUpperCase() === "GB" && (!p.stockBaseId || !String(p.stockBaseId).trim());
+function getGbBaseProduct(){
+  // procura por kind primeiro; fallback para nome "GB"
+  return db.products.find(p => p?.kind === "base_gb") || db.products.find(p => (p?.nome || "").trim().toUpperCase() === "GB");
 }
 
-function baseIdForProduct(productId) {
+function isPackage(p){
+  return p && p.kind === "package" && Number(p.gbQty || 0) > 0;
+}
+
+function stockForProduct(productId){
   const p = productById(productId);
-  if (!p) return null;
-  const base = (p.stockBaseId && String(p.stockBaseId).trim()) ? p.stockBaseId : p.id;
-  return base;
-}
+  if(!p) return 0;
 
-function factorForProduct(productId) {
-  const p = productById(productId);
-  if (!p) return 1;
-  const f = Number(p.stockFactor || 1);
-  return (Number.isFinite(f) && f > 0) ? f : 1;
-}
-
-// quanto consome do stock base por 1 unidade vendida
-function consumptionQty(productId) {
-  return factorForProduct(productId);
-}
-
-// stock vendável (pacote = floor(stockBase / factor))
-function stockForProduct(productId) {
-  const baseId = baseIdForProduct(productId);
-  if (!baseId) return 0;
-  const baseStock = invQty(baseId);
-  const factor = factorForProduct(productId);
-  return factor > 0 ? Math.floor(baseStock / factor) : 0;
-}
-
-// baixar stock no base ao finalizar venda
-function consumeStockForSaleItem(productId, qtyUnits) {
-  const baseId = baseIdForProduct(productId);
-  if (!baseId) throw new Error("Stock base não encontrado.");
-  const factor = factorForProduct(productId);
-  const need = Number(qtyUnits || 0) * factor;
-
-  const current = invQty(baseId);
-  if (need > current) throw new Error("Stock insuficiente (base).");
-
-  setInv(baseId, current - need);
-}
-
-// custo unitário (pacote = factor * custo do base)
-function costUnitFor(productId) {
-  const p = productById(productId);
-  if (!p) return 0;
-
-  const baseId = baseIdForProduct(productId);
-  if (!baseId) return Number(p.precoAquisicaoRef || 0);
-
-  // se tem base diferente, usa custo do base
-  if (baseId !== p.id) {
-    const base = productById(baseId);
-    const baseCost = Number(base?.precoAquisicaoRef || 0);
-    return factorForProduct(productId) * baseCost;
+  // PACOTE: stock “virtual” = quantos pacotes dá para montar com o stock do GB
+  if(isPackage(p)){
+    const gb = getGbBaseProduct();
+    if(!gb) return 0;
+    const gbStock = invQty(gb.id);
+    const perPack = Number(p.gbQty || 0);
+    return perPack > 0 ? Math.floor(gbStock / perPack) : 0;
   }
 
-  // normal
+  // NORMAL: stock próprio como sempre
+  return invQty(productId);
+}
+
+function consumeStockForSaleItem(productId, qty){
+  const p = productById(productId);
+  if(!p) throw new Error("Produto não encontrado.");
+
+  // PACOTE: desconta do GB
+  if(isPackage(p)){
+    const gb = getGbBaseProduct();
+    if(!gb) throw new Error("Produto base 'GB' não está configurado.");
+    const need = Number(p.gbQty || 0) * Number(qty || 0);
+    const current = invQty(gb.id);
+    if(need > current) throw new Error("Stock de GB insuficiente.");
+    setInv(gb.id, current - need);
+    return;
+  }
+
+  // NORMAL: desconta do próprio produto
+  const current = invQty(productId);
+  if(qty > current) throw new Error("Stock insuficiente.");
+  setInv(productId, current - qty);
+}
+
+function costUnitFor(productId){
+  const p = productById(productId);
+  if(!p) return 0;
+
+  // PACOTE: custo = gbQty * custoPorGB
+  if(isPackage(p)){
+    const gb = getGbBaseProduct();
+    const gbCost = Number(gb?.precoAquisicaoRef || 0);
+    return Number(p.gbQty || 0) * gbCost;
+  }
+
+  // NORMAL: custo padrão
   return Number(p.precoAquisicaoRef || 0);
 }
 
@@ -303,6 +296,7 @@ function calcAccountBalance(accountId) {
 function saveAutoSnapshot() {
   try {
     const list = JSON.parse(localStorage.getItem(BACKUP_KEY) || "[]");
+    // deep copy para não apontar por referência
     list.push({ at: Date.now(), db: JSON.parse(JSON.stringify(db)) });
     while (list.length > BACKUP_MAX) list.shift();
     localStorage.setItem(BACKUP_KEY, JSON.stringify(list));
@@ -389,6 +383,8 @@ function createUser({ nome, pin, role }) {
     role,
     ativo: true,
     createdAt: Date.now(),
+
+    // recuperação
     securityQuestion: "",
     securityAnswerHash: "",
     mustChangePin: false,
@@ -512,11 +508,13 @@ function can(action) {
   if (!r) return false;
 
   const rules = {
+    // críticos
     "users.manage": ["admin"],
     "system.reset": ["admin"],
     "accounts.delete": ["admin"],
     "products.delete": ["admin"],
 
+    // normais
     "accounts.create_edit": ["admin", "manager"],
     "products.create": ["admin", "manager"],
     "sales.create": ["admin", "manager", "staff"],
@@ -658,6 +656,7 @@ function renderHome() {
   if (k4) k4.textContent = `${buysToday.length} compras`;
   if (k5) k5.textContent = MT(totalProfit);
 
+  // contas
   const elAcc = document.getElementById("accountsList");
   if (elAcc) {
     const accs = [...db.accounts].sort(byName);
@@ -682,11 +681,12 @@ function renderHome() {
       : `<div class="muted">Sem contas.</div>`;
   }
 
+  // low stock
   const elLow = document.getElementById("lowStockList");
   if (elLow) {
     const lows = db.products
       .filter((p) => p.ativo)
-.map((p) => ({ p, qty: stockForProduct(p.id) }))
+      .map((p) => ({ p, qty: invQty(p.id) }))
       .filter((x) => x.p.minStock > 0 && x.qty <= x.p.minStock)
       .sort((a, b) => a.qty - b.qty);
 
@@ -706,6 +706,7 @@ function renderHome() {
       : `<div class="muted">Sem alertas de stock mínimo.</div>`;
   }
 
+  // últimas vendas
   const elLast = document.getElementById("lastSales");
   if (elLast) {
     const last = [...db.sales].slice(-5).reverse();
@@ -819,15 +820,15 @@ function renderProductsList() {
         .join("")
     : `<div class="muted">Sem produtos.</div>`;
 }
-
 /* =======================
-   Produtos – Select Stock Base (UI)
+   Produtos – Pacotes (stock base)
 ======================= */
 function renderProductStockBaseSelect() {
   const sel = document.getElementById("prodStockBase");
   if (!sel) return;
 
   const current = sel.value || "";
+
   const items = (db.products || [])
     .filter(p => p && p.ativo !== false)
     .sort((a,b)=> (a.nome||"").localeCompare(b.nome||""));
@@ -839,6 +840,7 @@ function renderProductStockBaseSelect() {
 
   sel.value = current;
 }
+
 
 /* =======================
    Clientes
@@ -875,7 +877,7 @@ function renderWarehouse() {
   if (!el) return;
 
   const items = db.products
-    .filter((p) => p.ativo)
+   .filter((p) => p.ativo) // mantém
     .map((p) => ({ p, qty: invQty(p.id) }))
     .sort((a, b) => a.p.nome.localeCompare(b.p.nome));
 
@@ -931,8 +933,8 @@ function renderBuysList() {
 function renderCatalog() {
   const q = (document.getElementById("catalogSearch")?.value || "").toLowerCase();
   const items = db.products
-    .filter((p) => p.ativo)
-    .filter((p) => !isGbBaseProduct(p)) // ✅ não mostra "GB" no catálogo
+   .filter((p) => p.ativo && p.kind !== "base_gb")
+
     .filter((p) => p.nome.toLowerCase().includes(q))
     .sort(byName);
 
@@ -942,7 +944,7 @@ function renderCatalog() {
   el.innerHTML = items.length
     ? items
         .map((p) => {
-          const qty = stockForProduct(p.id); // ✅ stock vendável (base/factor)
+         const qty = stockForProduct(p.id);
           const disabled = qty <= 0;
           const img = p.img ? `<img src="${p.img}" alt="">` : "";
           return `
@@ -968,28 +970,31 @@ function addToCart(productId) {
   const p = productById(productId);
   if (!p) return;
 
-  // stock necessário por 1 unidade (em base)
+  // stock base necessário por 1 unidade do produto
   const needOne = consumptionQty(productId);
-
-  // ✅ valida usando stock vendável
-  if (stockForProduct(productId) < 1) {
+  if (stockForProduct(productId) < needOne) {
     return alert("Sem stock (base).");
   }
 
+  // ✅ agora sim: procurar item no carrinho
   const found = cart.find((i) => i.productId === productId);
 
   if (found) {
-    // validar se ainda há base para +1
-    const needTotalBase = (found.qty + 1) * needOne;
-    const baseId = baseIdForProduct(productId);
-    if (needTotalBase > invQty(baseId)) return alert("Stock base insuficiente.");
+    // se já existe no carrinho, validar se ainda há stock base para +1
+    const needTotal = (found.qty + 1) * consumptionQty(productId);
+    if (needTotal > stockForProduct(productId)) {
+      return alert("Stock base insuficiente.");
+    }
     found.qty += 1;
   } else {
+    // novo item
     cart.push({ productId, qty: 1 });
   }
 
   renderCart();
 }
+
+
 
 function renderCart() {
   const el = document.getElementById("cartList");
@@ -1004,7 +1009,7 @@ function renderCart() {
 
   const rows = cart.map((i) => {
     const p = productById(i.productId);
-    const stock = stockForProduct(i.productId); // ✅ stock vendável (base/factor)
+    const stock = invQty(i.productId);
     const total = i.qty * Number(p?.precoVenda || 0);
     return { i, p, stock, total };
   });
@@ -1038,10 +1043,7 @@ function changeQty(productId, delta) {
   if (!item) return;
   const newQty = item.qty + delta;
   if (newQty <= 0) return removeFromCart(productId);
-
-  // ✅ valida stock vendável (pacote usa base)
-  if (newQty > stockForProduct(productId)) return alert("Stock insuficiente (base).");
-
+  if (newQty > invQty(productId)) return alert("Stock insuficiente.");
   item.qty = newQty;
   renderCart();
 }
@@ -1061,20 +1063,20 @@ function finalizeSale() {
 
   if (!customerId) return alert("Selecione o cliente.");
   if (!accountId) return alert("Selecione a conta.");
-
-  // ✅ valida stock BASE real (em unidades do base)
-  for (const i of cart) {
-    const baseId = baseIdForProduct(i.productId);
-    const need = i.qty * consumptionQty(i.productId);
-    if (need > invQty(baseId)) {
-      const baseName = productById(baseId)?.nome || "Stock base";
-      return alert(`Stock insuficiente em: ${baseName}`);
-    }
+for (const i of cart) {
+  const baseId = stockBaseIdForProduct(i.productId);
+  const need = i.qty * consumptionQty(i.productId);
+  if (need > invQty(baseId)) {
+    const baseName = productById(baseId)?.nome || "Stock base";
+    return alert(`Stock insuficiente em: ${baseName}`);
   }
+}
+
 
   const items = cart.map((i) => {
     const p = productById(i.productId);
-    const costUnit = costUnitFor(i.productId);
+const costUnit = costUnitFor(i.productId);
+
     return { productId: i.productId, qty: i.qty, priceUnit: Number(p?.precoVenda || 0), costUnit };
   });
 
@@ -1085,21 +1087,13 @@ function finalizeSale() {
   const sale = { id: uid(), data: date, customerId, accountId, items, total, totalCost, profit };
   db.sales.push(sale);
 
-  try {
-    items.forEach((it) => consumeStockForSaleItem(it.productId, it.qty)); // ✅ baixa no BASE
-  } catch (err) {
-    return alert(err?.message || "Erro ao baixar stock.");
-  }
+try{
+  items.forEach((it) => consumeStockForSaleItem(it.productId, it.qty));
+}catch(err){
+  return alert(err?.message || "Erro ao baixar stock.");
+}
 
-  addLedger({
-    date,
-    type: "in",
-    accountId,
-    amount: total,
-    refType: "sale",
-    refId: sale.id,
-    note: `Venda ${customerName(customerId)}`
-  });
+  addLedger({ date, type: "in", accountId, amount: total, refType: "sale", refId: sale.id, note: `Venda ${customerName(customerId)}` });
 
   cart = [];
   touch();
@@ -1139,6 +1133,21 @@ function renderSelects() {
   const accActive = db.accounts.filter((a) => a.ativo).sort(byName);
   const custs = [...db.customers].sort(byName);
   const prods = db.products.filter((p) => p.ativo).sort(byName);
+function renderProductStockBaseSelect() {
+  const sel = document.getElementById("prodStockBase");
+  if (!sel) return;
+
+  const current = sel.value || "";
+  const items = db.products.filter(p => p.ativo).sort(byName);
+
+  sel.innerHTML = `
+    <option value="">— Não (produto normal) —</option>
+    ${items.map(p => `<option value="${p.id}">${p.nome}</option>`).join("")}
+  `;
+
+  // tenta manter seleção atual
+  sel.value = current;
+}
 
   const saleAcc = document.getElementById("saleAccount");
   if (saleAcc) saleAcc.innerHTML = accActive.map((a) => `<option value="${a.id}">${a.nome}</option>`).join("");
@@ -1181,7 +1190,7 @@ function renderReportsBase() {
 
   const lows = db.products
     .filter((p) => p.ativo)
-.map((p) => ({ p, qty: stockForProduct(p.id) }))
+    .map((p) => ({ p, qty: invQty(p.id) }))
     .filter((x) => x.p.minStock > 0 && x.qty <= x.p.minStock);
 
   elStock.innerHTML = lows.length
@@ -1383,24 +1392,46 @@ function applyMobileClass() {
   const isMobile = window.innerWidth <= 900 || window.matchMedia("(pointer: coarse)").matches;
   document.body.classList.toggle("is-mobile", isMobile);
 }
+function stockBaseIdForProduct(productId){
+  const p = productById(productId);
+  // se for pacote -> usa stock base definido, senão usa ele próprio
+  return (p && p.stockBaseId) ? p.stockBaseId : productId;
+}
+
+function stockForProduct(productId){
+  const baseId = stockBaseIdForProduct(productId);
+  return invQty(baseId);
+}
+
+function consumptionQty(productId){
+  const p = productById(productId);
+  // se for pacote, consome a qty definida; se não, consome 1 por unidade
+  const q = Number(p?.stockConsumeQty || 1);
+  return q > 0 ? q : 1;
+}
 
 /* =======================
    BOOT (um único DOMContentLoaded)
 ======================= */
 window.addEventListener("DOMContentLoaded", async () => {
+  // 0) Gate auth (antes de qualquer coisa)
   bootAuthGate();
 
+  // 1) Modal close
   const modalClose = document.getElementById("modalClose");
   if (modalClose) modalClose.addEventListener("click", closeModal);
   const modal = document.getElementById("modal");
   if (modal) modal.addEventListener("click", (e) => { if (e.target === modal) closeModal(); });
 
+  // 2) Menu navigation
   document.querySelectorAll(".mitem").forEach((btn) => btn.addEventListener("click", () => go(btn.dataset.page)));
   document.querySelectorAll("[data-nav]").forEach((btn) => btn.addEventListener("click", () => go(btn.dataset.nav)));
 
+  // 3) Sidebar toggle (desktop collapse + mobile drawer)
   const sidebarToggle = document.getElementById("sidebarToggle");
   const overlay = document.getElementById("overlay");
 
+  // restaura estado colapsado (desktop)
   const saved = localStorage.getItem("sidebarCollapsed");
   if (saved === "1") document.body.classList.add("sidebar-collapsed");
 
@@ -1429,23 +1460,28 @@ window.addEventListener("DOMContentLoaded", async () => {
   applyMobileClass();
   window.addEventListener("resize", applyMobileClass);
 
+  // 4) Top logout (único)
   const btnLogoutTop = document.getElementById("btnLogoutTop");
   if (btnLogoutTop) btnLogoutTop.addEventListener("click", (e) => { e.preventDefault(); doLogout(); });
 
+  // 5) Quick sale
   const btnQuickSale = document.getElementById("btnQuickSale");
   if (btnQuickSale) btnQuickSale.addEventListener("click", () => go("vendas"));
 
+  // 6) Produtos: lucro esperado
   const prodPrice = document.getElementById("prodPrice");
   const prodCost = document.getElementById("prodCost");
   if (prodPrice) prodPrice.addEventListener("input", updateProfitNote);
   if (prodCost) prodCost.addEventListener("input", updateProfitNote);
 
+  // 7) Vendas: limpar/finalizar
   const btnClearCart = document.getElementById("btnClearCart");
   if (btnClearCart) btnClearCart.addEventListener("click", () => { cart = []; renderCart(); });
 
   const btnCheckout = document.getElementById("btnCheckout");
   if (btnCheckout) btnCheckout.addEventListener("click", finalizeSale);
 
+  // 8) filtros / pesquisa
   const productSearch = document.getElementById("productSearch");
   if (productSearch) productSearch.addEventListener("input", renderProductsList);
 
@@ -1472,6 +1508,7 @@ window.addEventListener("DOMContentLoaded", async () => {
     renderSalesList();
   });
 
+  // 9) Config: export/import/reset
   const btnExport = document.getElementById("btnExport");
   if (btnExport) {
     btnExport.addEventListener("click", () => {
@@ -1515,6 +1552,7 @@ window.addEventListener("DOMContentLoaded", async () => {
     });
   }
 
+  // Online keys
   const sbUrl = document.getElementById("sbUrl");
   const sbKey = document.getElementById("sbKey");
   if (sbUrl) sbUrl.value = db.online?.url || "";
@@ -1534,6 +1572,7 @@ window.addEventListener("DOMContentLoaded", async () => {
   const btnSync = document.getElementById("btnSync");
   if (btnSync) btnSync.addEventListener("click", syncNow);
 
+  // Auto-backup UI
   const autoMin = document.getElementById("autoBackupMinutes");
   if (autoMin) {
     db.settings = db.settings || {};
@@ -1552,6 +1591,7 @@ window.addEventListener("DOMContentLoaded", async () => {
 
   updateBackupStatusUI();
 
+  // Auth buttons
   const btnGoRegister = document.getElementById("btnGoRegister");
   const btnBackLogin = document.getElementById("btnBackLogin");
   const btnLogin = document.getElementById("btnLogin");
@@ -1626,6 +1666,7 @@ window.addEventListener("DOMContentLoaded", async () => {
       setAppLocked(false);
       renderAll();
 
+      // se o admin fez reset: obriga a mudar
       if (res.mustChangePin) {
         modalChangePinForced();
       }
@@ -1656,6 +1697,7 @@ window.addEventListener("DOMContentLoaded", async () => {
         refreshLoginUsers();
         renderAll();
 
+        // opcional: pedir logo a pergunta de segurança
         openModal(
           "Definir recuperação de PIN (recomendado)",
           `
@@ -1684,6 +1726,7 @@ window.addEventListener("DOMContentLoaded", async () => {
     });
   }
 
+  // Suporte
   const btnSendIssue = document.getElementById("btnSendIssue");
   if (btnSendIssue) {
     btnSendIssue.addEventListener("click", () => {
@@ -1696,10 +1739,13 @@ window.addEventListener("DOMContentLoaded", async () => {
     });
   }
 
+  // Delegação: click geral
   document.addEventListener("click", (e) => {
+    // Catalog add
     const addBtn = e.target.closest("[data-add]");
     if (addBtn) return addToCart(addBtn.dataset.add);
 
+    // Cart qty/remove
     const dec = e.target.closest("[data-dec]");
     if (dec) return changeQty(dec.dataset.dec, -1);
     const inc = e.target.closest("[data-inc]");
@@ -1707,11 +1753,13 @@ window.addEventListener("DOMContentLoaded", async () => {
     const rem = e.target.closest("[data-rem]");
     if (rem) return removeFromCart(rem.dataset.rem);
 
+    // Accounts edit/delete
     const editAcc = e.target.closest("[data-edit-acc]");
     if (editAcc) return modalAccount(editAcc.dataset.editAcc);
     const delAcc = e.target.closest("[data-del-acc]");
     if (delAcc) return deleteAccount(delAcc.dataset.delAcc);
 
+    // Products toggle/delete
     const togProd = e.target.closest("[data-toggle-prod]");
     if (togProd) {
       const id = togProd.dataset.toggleProd;
@@ -1730,6 +1778,7 @@ window.addEventListener("DOMContentLoaded", async () => {
       return renderAll();
     }
 
+    // Customers delete
     const delCust = e.target.closest("[data-del-cust]");
     if (delCust) {
       const id = delCust.dataset.delCust;
@@ -1741,6 +1790,7 @@ window.addEventListener("DOMContentLoaded", async () => {
       return renderAll();
     }
 
+    // Users section (Admin)
     const addUser = e.target.closest("#btnAddUser");
     if (addUser) return modalUser(null);
 
@@ -1789,6 +1839,7 @@ window.addEventListener("DOMContentLoaded", async () => {
     }
   });
 
+  // Delegação: submit geral (modais + forms)
   document.addEventListener("submit", (e) => {
     const accForm = e.target.closest("#accForm");
     if (accForm) {
@@ -1833,12 +1884,11 @@ window.addEventListener("DOMContentLoaded", async () => {
         img: (document.getElementById("prodImg")?.value || "").trim(),
         desc: (document.getElementById("prodDesc")?.value || "").trim(),
         ativo: true,
-
-        // ✅ mantém os campos que já tinhas criado
         stockBaseId: document.getElementById("prodStockBase")?.value || "",
-        stockFactor: Math.max(1, Number(document.getElementById("prodStockFactor")?.value || 1)),
-      };
+stockFactor: Math.max(1, Number(document.getElementById("prodStockFactor")?.value || 1)),
 
+      };
+      
       db.products.push(p);
       touch();
       productForm.reset();
@@ -1893,6 +1943,7 @@ window.addEventListener("DOMContentLoaded", async () => {
       setInv(productId, invQty(productId) + qty);
       addLedger({ date, type: "out", accountId, amount: total, refType: "purchase", refId: purchase.id, note: `Compra ${supplier}` });
 
+      // atualiza custo ref
       db.products = db.products.map((p) => (p.id === productId ? { ...p, precoAquisicaoRef: costUnit } : p));
 
       touch();
@@ -1927,6 +1978,7 @@ window.addEventListener("DOMContentLoaded", async () => {
         return;
       }
 
+      // editar (PIN opcional)
       db.users = db.users.map((u) => {
         if (u.id !== editId) return u;
         const next = { ...u, nome, role: roleVal };
@@ -1967,6 +2019,10 @@ window.addEventListener("DOMContentLoaded", async () => {
     const qaForm = e.target.closest("#qaForm");
     if (qaForm) {
       e.preventDefault();
+      if (!isAdmin() && db.users.length > 1) {
+        // regra simples: só admin define QA para outros
+        // (primeiro user ao criar pode passar aqui porque ainda está logado como admin)
+      }
       const id = qaForm.getAttribute("data-qa-id");
       const q = document.getElementById("qaQuestion")?.value || "";
       const a = document.getElementById("qaAnswer")?.value || "";
@@ -2005,18 +2061,22 @@ window.addEventListener("DOMContentLoaded", async () => {
     }
   });
 
+  // 10) Datas default
   const bd = document.getElementById("buyDate");
   if (bd && !bd.value) bd.value = todayISO();
   const sd = document.getElementById("saleDate");
   if (sd && !sd.value) sd.value = todayISO();
 
+  // 11) Supabase init
   await initSupabaseIfConfigured();
 
+  // 12) Auto-backup timer + beforeunload
   try {
     const mins = Math.max(5, Number(db.settings?.autoBackupMinutes || 10));
     setInterval(() => saveAutoSnapshot(), mins * 60 * 1000);
     window.addEventListener("beforeunload", () => saveAutoSnapshot());
   } catch {}
 
+  // 13) Render
   renderAll();
 });
