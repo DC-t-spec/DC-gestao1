@@ -1,16 +1,59 @@
-<head>
-  <meta charset="UTF-8">
+<!-- AUTH SCREEN (Login / Criar utilizador) -->
+<div class="auth" id="authScreen" style="display:none">
+  <div class="auth-card">
+    <div class="auth-head">
+      <div class="logo">DC</div>
+      <div>
+        <h2 style="margin:0">Gestão Fácil</h2>
+        <p class="muted" style="margin:4px 0 0">Entrar para continuar</p>
+      </div>
+    </div>
 
-  <!-- ✅ ISTO É O MAIS IMPORTANTE -->
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <div id="authModeLogin">
+      <div class="field">
+        <label>Utilizador</label>
+        <select class="input" id="loginUser"></select>
+      </div>
+      <div class="field">
+        <label>PIN</label>
+        <input class="input" id="loginPin" type="password" inputmode="numeric" placeholder="ex: 1234">
+      </div>
+      <button class="btn big full" id="btnLogin" type="button">Iniciar sessão</button>
+<button class="btn ghost" id="btnForgotPin" type="button">Esqueci PIN</button>
 
-  <title>DC project</title>
-  <link rel="stylesheet" href="./style.css">
-</head>
+      <div class="row between" style="margin-top:10px">
+        <span class="muted" id="loginHint"></span>
+        <button class="btn ghost" id="btnGoRegister" type="button">Criar utilizador</button>
+      </div>
+    </div>
 
-    
-  <body>
-  <div class="app">
+    <div id="authModeRegister" style="display:none">
+      <p class="muted" id="registerTitle" style="margin-top:0"></p>
+
+      <div class="field">
+        <label>Nome</label>
+        <input class="input" id="regName" placeholder="ex: Admin, Caixa 1">
+      </div>
+      <div class="field">
+        <label>PIN (4–8 dígitos)</label>
+        <input class="input" id="regPin" type="password" inputmode="numeric" placeholder="ex: 1234">
+      </div>
+      <div class="field" id="roleWrap">
+        <label>Nível</label>
+        <select class="input" id="regRole">
+          <option value="admin">Admin</option>
+          <option value="manager">Gestão</option>
+          <option value="staff">Caixa</option>
+        </select>
+      </div>
+
+      <button class="btn big full" id="btnRegister" type="button">Criar</button>
+      <button class="btn ghost full" id="btnBackLogin" type="button" style="margin-top:8px">Voltar</button>
+    </div>
+  </div>
+</div>
+
+<div class="app">
   <aside class="sidebar">
     <div class="brand">
       <div class="logo">DC</div>
@@ -38,27 +81,28 @@
       <div class="pill subtle" id="deviceState">📱/💻 Responsivo</div>
     </div>
   </aside>
-    <div class="overlay" id="overlay"></div>
 
+  <div class="overlay" id="overlay"></div>
 
-<main class="main">
-  <header class="topbar">
-    <!-- BOTÃO MENU (☰) -->
-    <button class="btn ghost" id="sidebarToggle" type="button" aria-label="Menu">
-      ☰
-    </button>
+  <main class="main">
+    <header class="topbar">
+      <button class="btn ghost" id="sidebarToggle" type="button" aria-label="Menu">☰</button>
 
-    <div class="crumb">
-      <h1 id="pageTitle">Home</h1>
-      <p id="pageDesc">Dashboard geral + contas de pagamento</p>
-    </div>
-  </header>
-
+      <div class="crumb">
+        <h1 id="pageTitle">Home</h1>
+        <p id="pageDesc">Dashboard geral + contas de pagamento</p>
+      </div>
 
       <div class="top-actions">
         <button class="btn ghost" id="btnSync">Sincronizar</button>
         <button class="btn" id="btnQuickSale">+ Venda</button>
       </div>
+      <div class="top-user">
+  <span class="pill subtle" id="userBadge">👤 —</span>
+  <button class="btn ghost" id="btnLogoutTop" type="button">Sair</button>
+</div>
+<script src="./app.js"></script>
+
     </header>
 
     <!-- HOME -->
@@ -148,7 +192,7 @@
               <strong id="cartTotal">0.00 MT</strong>
             </div>
             <button class="btn big" id="btnCheckout">Finalizar venda</button>
-            <small class="muted">Sem desconto nesta versão (como pediste).</small>
+            <small class="muted">Sem desconto nesta versão.</small>
           </div>
 
           <hr />
@@ -217,9 +261,7 @@
     <section class="page" id="clientes">
       <div class="grid two">
         <div class="card">
-          <div class="row between">
-            <h2>Cadastrar cliente</h2>
-          </div>
+          <div class="row between"><h2>Cadastrar cliente</h2></div>
           <form id="customerForm" class="form2">
             <div class="field">
               <label>Nome</label>
@@ -238,9 +280,7 @@
         </div>
 
         <div class="card">
-          <div class="row between">
-            <h2>Lista de clientes</h2>
-          </div>
+          <div class="row between"><h2>Lista de clientes</h2></div>
           <div id="customersList" class="list"></div>
         </div>
       </div>
@@ -250,9 +290,7 @@
     <section class="page" id="produtos">
       <div class="grid two">
         <div class="card">
-          <div class="row between">
-            <h2>Cadastrar produto</h2>
-          </div>
+          <div class="row between"><h2>Cadastrar produto</h2></div>
           <form id="productForm" class="form2">
             <div class="field">
               <label>Nome</label>
@@ -278,9 +316,32 @@
               <label>Descrição</label>
               <input class="input" id="prodDesc" placeholder="Descrição curta" />
             </div>
+<!-- PACOTES (consome stock de outro produto, ex: GB) -->
+<div class="card inner" style="margin-top:10px">
+  <h3 style="margin:0 0 8px">Pacotes / Consumo de Stock</h3>
+  <p class="muted" style="margin:0 0 10px">
+    Use isto quando o produto vendido (ex.: Pacote 10GB) consome stock de um único item (ex.: GB).
+  </p>
+
+  <div class="grid two">
+    <div class="field full">
+      <label>Este produto consome stock de (opcional)</label>
+      <select class="input" id="prodStockBase">
+        <option value="">— Não (produto normal) —</option>
+        <!-- JS vai preencher com produtos ativos -->
+      </select>
+      <small class="muted">Ex.: selecione “GB (Unidade)”</small>
+    </div>
+
+    <div class="field">
+      <label>Quantidade consumida do stock base</label>
+      <input class="input" id="prodStockFactor" type="number" min="1" step="1" value="1" />
+      <small class="muted">Ex.: 10 (para Pacote 10GB)</small>
+    </div>
+  </div>
+</div>
 
             <div class="note full" id="profitNote">Lucro esperado: 0.00 MT</div>
-
             <button class="btn big full" type="submit">Salvar produto</button>
           </form>
         </div>
@@ -306,14 +367,14 @@
       </div>
     </section>
 
-    <!-- RELATÓRIOS (placeholder V1) -->
+    <!-- RELATÓRIOS -->
     <section class="page" id="relatorios">
       <div class="card">
         <div class="row between">
           <h2>Relatórios</h2>
           <span class="badge">V1: base</span>
         </div>
-        <p class="muted">Nesta V1 já vamos preparar os dados para os 12 relatórios. Em seguida eu ativo a tela completa.</p>
+        <p class="muted">Nesta V1 já vamos preparar os dados para os 12 relatórios.</p>
         <div class="grid two">
           <div class="card inner">
             <h3>Resumo rápido</h3>
@@ -331,7 +392,7 @@
     <section class="page" id="fiscal">
       <div class="card">
         <h2>Fiscal</h2>
-        <p class="muted">Página em desenvolvimento. Em breve: impostos, IVA, relatórios fiscais e faturas.</p>
+        <p class="muted">Página em desenvolvimento.</p>
       </div>
     </section>
 
@@ -339,6 +400,7 @@
     <section class="page" id="config">
       <div class="card">
         <h2>Config</h2>
+
         <div class="grid two">
           <div class="card inner">
             <h3>Offline / Backup</h3>
@@ -354,7 +416,7 @@
 
           <div class="card inner">
             <h3>Online (Supabase)</h3>
-            <p class="muted">Cole aqui as chaves para sincronizar multi-dispositivo. Se ficar vazio, funciona só offline.</p>
+            <p class="muted">Cole aqui as chaves para sincronizar.</p>
             <div class="form2">
               <div class="field full">
                 <label>SUPABASE_URL</label>
@@ -365,9 +427,44 @@
                 <input class="input" id="sbKey" placeholder="eyJ..." />
               </div>
               <button class="btn big full" id="btnSaveOnline" type="button">Guardar e ativar online</button>
-              <small class="muted">Depois disso, o botão “Sincronizar” envia/baixa dados.</small>
             </div>
           </div>
+        </div>
+<!-- UTILIZADORES (apenas Admin) -->
+<div class="card inner" id="usersCard" style="display:none;">
+  <div class="row between">
+    <h3>Utilizadores</h3>
+    <button class="btn" id="btnAddUser" type="button">+ Novo utilizador</button>
+  </div>
+
+  <p class="muted" style="margin-top:6px">
+    Apenas Admin pode criar/editar utilizadores. Gestão/Caixa entram com PIN.
+  </p>
+
+  <div id="usersList" class="list"></div>
+</div>
+
+        
+        <!-- Auto-backup (dentro do Config) -->
+        <div class="card inner" style="margin-top:12px">
+          <h3>Auto-backup</h3>
+          <p class="muted" id="autoBackupStatus">Auto-backup…</p>
+
+          <div class="grid two">
+            <div class="field">
+              <label>Intervalo (minutos)</label>
+              <input class="input" id="autoBackupMinutes" type="number" min="5" step="1">
+            </div>
+
+            <div class="field">
+              <label>Recuperação</label>
+              <button class="btn ghost full" id="btnRestoreAutoSnapshot" type="button">Restaurar último snapshot</button>
+            </div>
+          </div>
+
+          <p class="muted" style="margin-top:8px">
+            Snapshots são cópias automáticas no aparelho. Para ficheiro, use “Export”.
+          </p>
         </div>
       </div>
     </section>
@@ -380,11 +477,12 @@
           <div class="card inner">
             <h3>FAQ</h3>
             <ul class="muted">
-              <li>Como registrar uma venda? → Vendas → adicionar no carrinho → finalizar.</li>
-              <li>Como entra stock? → Compras → salvar compra (entra no armazém).</li>
-              <li>Como adicionar formas de pagamento? → Home → Nova conta.</li>
+              <li>Vendas → adicionar no carrinho → finalizar.</li>
+              <li>Compras → salvar compra (entra no armazém).</li>
+              <li>Home → Nova conta (formas de pagamento).</li>
             </ul>
           </div>
+
           <div class="card inner">
             <h3>Reportar problema</h3>
             <textarea class="input" id="issueText" rows="5" placeholder="Descreva o problema..."></textarea>
@@ -392,13 +490,11 @@
             <div class="muted" id="issueSent" style="margin-top:10px;"></div>
           </div>
         </div>
-        <div class="card inner">
-          <h3>Status do sistema</h3>
-          <p class="muted">Nesta V1 (CodePen), o status é “local”. Quando ativarmos o online, teremos status de sincronização.</p>
-        </div>
       </div>
     </section>
-  <
+  </main>
+</div>
+
 <!-- MODAL -->
 <div class="modal" id="modal">
   <div class="modal-card">
@@ -409,8 +505,3 @@
     <div id="modalBody"></div>
   </div>
 </div>
-    <script  src="./script.js"></script>
-
-  </body>
-  
-</html>
