@@ -481,3 +481,81 @@ body.is-mobile .grid.three{
   grid-template-columns: 1fr !important;
   gap: 10px !important;
 }
+/* ===== Auth Screen ===== */
+.auth{
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: rgba(0,0,0,.55);
+  z-index: 99999;
+}
+
+.auth-card{
+  width: min(460px, 100%);
+  background: #0f172a;
+  border: 1px solid rgba(255,255,255,.12);
+  border-radius: 18px;
+  padding: 14px;
+  box-shadow: 0 16px 50px rgba(0,0,0,.45);
+}
+
+.auth-head{
+  display:flex;
+  gap: 10px;
+  align-items:center;
+  margin-bottom: 10px;
+}
+
+.auth .logo{
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  background: rgba(255,255,255,.08);
+  border: 1px solid rgba(255,255,255,.12);
+  font-weight: 700;
+}
+.topbar{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+}
+.top-user{
+  display:flex;
+  align-items:center;
+  gap:10px;
+}
+@media (max-width: 860px){
+  #userBadge{ display:none; } /* no mobile fica mais limpo */
+}
+/* AUTH: fica acima do site, mas abaixo do MODAL */
+#authScreen{
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+}
+
+/* MODAL: sempre por cima de tudo */
+#modal{
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: none;          /* o JS muda para flex */
+  align-items: center;
+  justify-content: center;
+  background: rgba(0,0,0,.45);
+}
+
+/* o cartão do modal */
+#modal .modal-card{
+  position: relative;
+  z-index: 10000;
+  max-width: 560px;
+  width: min(560px, 92vw);
+}
