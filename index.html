@@ -20,17 +20,46 @@
       </div>
     </div>
 
+    <!-- LOGIN MODE -->
     <div id="authModeLogin">
+    <!-- ID DA LOJA / BASE PARTILHADA -->
+<div class="field">
+  <label>ID da Loja (base partilhada)</label>
+
+  <div class="row gap" style="align-items:center">
+    <input class="input" id="workspaceId" placeholder="Ex: DCNET-LOJA1" />
+    <button class="btn ghost" id="btnGenWorkspace" type="button">Gerar</button>
+  </div>
+
+  <small class="muted">
+    Use o <strong>mesmo ID</strong> em todos os dispositivos da mesma loja para partilhar a base.
+  </small>
+</div>
+
+<div class="row between" style="margin:10px 0 14px">
+  <button class="btn ghost" id="btnCompanySetup" type="button">Configurar empresa</button>
+  <span class="muted" id="companyHint"></span>
+</div>
+
+
       <div class="field">
         <label>Utilizador</label>
         <select class="input" id="loginUser"></select>
       </div>
+
       <div class="field">
         <label>PIN</label>
-        <input class="input" id="loginPin" type="password" inputmode="numeric" placeholder="ex: 1234">
+        <input
+          class="input"
+          id="loginPin"
+          type="password"
+          inputmode="numeric"
+          placeholder="ex: 1234"
+        />
       </div>
+
       <button class="btn big full" id="btnLogin" type="button">Iniciar sessão</button>
-<button class="btn ghost" id="btnForgotPin" type="button">Esqueci PIN</button>
+      <button class="btn ghost" id="btnForgotPin" type="button">Esqueci PIN</button>
 
       <div class="row between" style="margin-top:10px">
         <span class="muted" id="loginHint"></span>
@@ -38,17 +67,38 @@
       </div>
     </div>
 
+    <!-- REGISTER MODE -->
     <div id="authModeRegister" style="display:none">
       <p class="muted" id="registerTitle" style="margin-top:0"></p>
 
+ <div class="field">
+  <label>ID da Loja (base partilhada)</label>
+  <input class="input" id="workspaceId" placeholder="Ex: DCNET-LOJA1" />
+  <small class="muted">Use o mesmo ID em todos os dispositivos da mesma loja.</small>
+</div>
+     
+     <button class="btn ghost" id="btnGenWorkspace" type="button" style="margin-top:8px">
+  Gerar ID automaticamente
+</button>
+
+      
+      
       <div class="field">
         <label>Nome</label>
-        <input class="input" id="regName" placeholder="ex: Admin, Caixa 1">
+        <input class="input" id="regName" placeholder="ex: Admin, Caixa 1" />
       </div>
+
       <div class="field">
         <label>PIN (4–8 dígitos)</label>
-        <input class="input" id="regPin" type="password" inputmode="numeric" placeholder="ex: 1234">
+        <input
+          class="input"
+          id="regPin"
+          type="password"
+          inputmode="numeric"
+          placeholder="ex: 1234"
+        />
       </div>
+
       <div class="field" id="roleWrap">
         <label>Nível</label>
         <select class="input" id="regRole">
@@ -59,12 +109,16 @@
       </div>
 
       <button class="btn big full" id="btnRegister" type="button">Criar</button>
-      <button class="btn ghost full" id="btnBackLogin" type="button" style="margin-top:8px">Voltar</button>
+      <button class="btn ghost full" id="btnBackLogin" type="button" style="margin-top:8px">
+        Voltar
+      </button>
     </div>
   </div>
 </div>
 
-<div class="app">
+<!-- APP -->
+<div class="app" style="display:flex">
+  <!-- SIDEBAR -->
   <aside class="sidebar">
     <div class="brand">
       <div class="logo">DC</div>
@@ -93,9 +147,12 @@
     </div>
   </aside>
 
+  <!-- OVERLAY (mobile) -->
   <div class="overlay" id="overlay"></div>
 
+  <!-- MAIN -->
   <main class="main">
+    <!-- TOPBAR -->
     <header class="topbar">
       <button class="btn ghost" id="sidebarToggle" type="button" aria-label="Menu">☰</button>
 
@@ -105,15 +162,14 @@
       </div>
 
       <div class="top-actions">
-        <button class="btn ghost" id="btnSync">Sincronizar</button>
-        <button class="btn" id="btnQuickSale">+ Venda</button>
+        <button class="btn ghost" id="btnSync" type="button">Sincronizar</button>
+        <button class="btn" id="btnQuickSale" type="button">+ Venda</button>
       </div>
+ <div id="workspaceBadge" class="badge"></div>
       <div class="top-user">
-  <span class="pill subtle" id="userBadge">👤 —</span>
-  <button class="btn ghost" id="btnLogoutTop" type="button">Sair</button>
-</div>
-<script src="./app.js"></script>
-
+        <span class="pill subtle" id="userBadge">👤 —</span>
+        <button class="btn ghost" id="btnLogoutTop" type="button">Sair</button>
+      </div>
     </header>
 
     <!-- HOME -->
@@ -124,11 +180,13 @@
           <div class="kpi" id="kpiSalesToday">0.00 MT</div>
           <div class="muted" id="kpiSalesTodayCount">0 vendas</div>
         </div>
+
         <div class="card">
           <div class="label">Compras hoje</div>
           <div class="kpi" id="kpiBuysToday">0.00 MT</div>
           <div class="muted" id="kpiBuysTodayCount">0 compras</div>
         </div>
+
         <div class="card">
           <div class="label">Lucro hoje (estim.)</div>
           <div class="kpi" id="kpiProfitToday">0.00 MT</div>
@@ -140,7 +198,8 @@
         <div class="card">
           <div class="row between">
             <h2>Contas / Formas de pagamento</h2>
-            <button class="btn" id="btnAddAccount">+ Nova conta</button>
+            <!-- o script abre modal via botões dentro da lista; este botão é opcional -->
+            <button class="btn" type="button" data-edit-acc="">+ Nova conta</button>
           </div>
           <div id="accountsList" class="list"></div>
         </div>
@@ -157,7 +216,7 @@
       <div class="card">
         <div class="row between">
           <h2>Últimas vendas</h2>
-          <button class="btn ghost" data-nav="vendas">Ver tudo</button>
+          <button class="btn ghost" data-nav="vendas" type="button">Ver tudo</button>
         </div>
         <div id="lastSales" class="list"></div>
       </div>
@@ -177,7 +236,7 @@
         <div class="card pane">
           <div class="row between">
             <h2>Carrinho</h2>
-            <button class="btn danger" id="btnClearCart">Limpar</button>
+            <button class="btn danger" id="btnClearCart" type="button">Limpar</button>
           </div>
 
           <div class="form">
@@ -185,10 +244,12 @@
               <label>Cliente</label>
               <select class="input" id="saleCustomer"></select>
             </div>
+
             <div class="field">
               <label>Conta (pagamento)</label>
               <select class="input" id="saleAccount"></select>
             </div>
+
             <div class="field">
               <label>Data</label>
               <input class="input" type="date" id="saleDate" />
@@ -202,7 +263,8 @@
               <span class="muted">Total</span>
               <strong id="cartTotal">0.00 MT</strong>
             </div>
-            <button class="btn big" id="btnCheckout">Finalizar venda</button>
+
+            <button class="btn big" id="btnCheckout" type="button">Finalizar venda</button>
             <small class="muted">Sem desconto nesta versão.</small>
           </div>
 
@@ -211,7 +273,7 @@
           <h3>Vendas (histórico)</h3>
           <div class="row gap">
             <input class="input" type="date" id="salesFilterDate" />
-            <button class="btn ghost" id="btnClearSalesFilter">Limpar</button>
+            <button class="btn ghost" id="btnClearSalesFilter" type="button">Limpar</button>
           </div>
           <div id="salesList" class="list"></div>
         </div>
@@ -225,31 +287,38 @@
           <div class="row between">
             <h2>Registar compra (entra no armazém)</h2>
           </div>
+
           <form id="buyForm" class="form2">
             <div class="field">
               <label>Fornecedor</label>
               <input class="input" id="buySupplier" placeholder="Nome do fornecedor" required />
             </div>
+
             <div class="field">
               <label>Produto</label>
               <select class="input" id="buyProduct"></select>
             </div>
+
             <div class="field">
               <label>Quantidade</label>
               <input class="input" type="number" min="1" step="1" id="buyQty" value="1" required />
             </div>
+
             <div class="field">
               <label>Preço de aquisição (unit.)</label>
               <input class="input" type="number" min="0" step="0.01" id="buyCost" required />
             </div>
+
             <div class="field">
               <label>Conta (pagamento)</label>
               <select class="input" id="buyAccount"></select>
             </div>
+
             <div class="field">
               <label>Data</label>
               <input class="input" type="date" id="buyDate" />
             </div>
+
             <button class="btn big full" type="submit">Salvar compra</button>
           </form>
         </div>
@@ -259,10 +328,12 @@
             <h2>Compras (histórico)</h2>
             <span class="badge">Entradas de stock</span>
           </div>
+
           <div class="row gap">
             <input class="input" type="date" id="buysFilterDate" />
-            <button class="btn ghost" id="btnClearBuysFilter">Limpar</button>
+            <button class="btn ghost" id="btnClearBuysFilter" type="button">Limpar</button>
           </div>
+
           <div id="buysList" class="list"></div>
         </div>
       </div>
@@ -272,26 +343,34 @@
     <section class="page" id="clientes">
       <div class="grid two">
         <div class="card">
-          <div class="row between"><h2>Cadastrar cliente</h2></div>
+          <div class="row between">
+            <h2>Cadastrar cliente</h2>
+          </div>
+
           <form id="customerForm" class="form2">
             <div class="field">
               <label>Nome</label>
               <input class="input" id="custName" required placeholder="Ex: Maria S." />
             </div>
+
             <div class="field">
               <label>Telefone/WhatsApp</label>
               <input class="input" id="custPhone" placeholder="84xxxxxxx" />
             </div>
+
             <div class="field full">
               <label>Notas (opcional)</label>
               <input class="input" id="custNotes" placeholder="Ex: prefere M-Pesa" />
             </div>
+
             <button class="btn big full" type="submit">Salvar cliente</button>
           </form>
         </div>
 
         <div class="card">
-          <div class="row between"><h2>Lista de clientes</h2></div>
+          <div class="row between">
+            <h2>Lista de clientes</h2>
+          </div>
           <div id="customersList" class="list"></div>
         </div>
       </div>
@@ -301,56 +380,61 @@
     <section class="page" id="produtos">
       <div class="grid two">
         <div class="card">
-          <div class="row between"><h2>Cadastrar produto</h2></div>
+          <div class="row between">
+            <h2>Cadastrar produto</h2>
+          </div>
+
           <form id="productForm" class="form2">
             <div class="field">
               <label>Nome</label>
               <input class="input" id="prodName" required placeholder="Ex: Arroz 1kg" />
             </div>
+
             <div class="field">
               <label>Preço de venda</label>
               <input class="input" type="number" min="0" step="0.01" id="prodPrice" required />
             </div>
+
             <div class="field">
               <label>Preço de aquisição (referência)</label>
               <input class="input" type="number" min="0" step="0.01" id="prodCost" required />
             </div>
+
             <div class="field">
               <label>Stock mínimo</label>
               <input class="input" type="number" min="0" step="1" id="prodMinStock" value="0" required />
             </div>
+
             <div class="field full">
               <label>Imagem (URL opcional)</label>
               <input class="input" id="prodImg" placeholder="https://..." />
             </div>
+
             <div class="field full">
               <label>Descrição</label>
               <input class="input" id="prodDesc" placeholder="Descrição curta" />
             </div>
-<!-- PACOTES (consome stock de outro produto, ex: GB) -->
-<div class="card inner" style="margin-top:10px">
-  <h3 style="margin:0 0 8px">Pacotes / Consumo de Stock</h3>
-  <p class="muted" style="margin:0 0 10px">
-    Use isto quando o produto vendido (ex.: Pacote 10GB) consome stock de um único item (ex.: GB).
-  </p>
 
-  <div class="grid two">
-    <div class="field full">
-      <label>Este produto consome stock de (opcional)</label>
-      <select class="input" id="prodStockBase">
-        <option value="">— Não (produto normal) —</option>
-        <!-- JS vai preencher com produtos ativos -->
-      </select>
-      <small class="muted">Ex.: selecione “GB (Unidade)”</small>
-    </div>
+            <!-- PACOTES -->
+            <div class="card inner" style="margin-top:10px">
+              <h3 style="margin:0 0 8px">Pacotes / Consumo de Stock</h3>
 
-    <div class="field">
-      <label>Quantidade consumida do stock base</label>
-      <input class="input" id="prodStockFactor" type="number" min="1" step="1" value="1" />
-      <small class="muted">Ex.: 10 (para Pacote 10GB)</small>
-    </div>
-  </div>
-</div>
+              <div class="grid two">
+                <div class="field full">
+                  <label>Este produto consome stock de (opcional)</label>
+                  <select class="input" id="prodStockBase">
+                    <option value="">— Não (produto normal) —</option>
+                  </select>
+                  <small class="muted">Ex.: selecione “GB (Unidade)”</small>
+                </div>
+
+                <div class="field">
+                  <label>Quantidade consumida do stock base</label>
+                  <input class="input" id="prodStockFactor" type="number" min="1" step="1" value="1" />
+                  <small class="muted">Ex.: 10 (para Pacote 10GB)</small>
+                </div>
+              </div>
+            </div>
 
             <div class="note full" id="profitNote">Lucro esperado: 0.00 MT</div>
             <button class="btn big full" type="submit">Salvar produto</button>
@@ -385,17 +469,8 @@
           <h2>Relatórios</h2>
           <span class="badge">V1: base</span>
         </div>
-        <p class="muted">Nesta V1 já vamos preparar os dados para os 12 relatórios.</p>
-        <div class="grid two">
-          <div class="card inner">
-            <h3>Resumo rápido</h3>
-            <div id="reportQuick" class="list"></div>
-          </div>
-          <div class="card inner">
-            <h3>Controle de estoque</h3>
-            <div id="reportStock" class="list"></div>
-          </div>
-        </div>
+        <p class="muted">A área dos 12 relatórios será criada automaticamente pelo script.</p>
+        <!-- (não precisa de mais nada aqui) -->
       </div>
     </section>
 
@@ -415,67 +490,68 @@
         <div class="grid two">
           <div class="card inner">
             <h3>Offline / Backup</h3>
+
             <div class="row gap">
-              <button class="btn ghost" id="btnExport">Exportar backup (JSON)</button>
+              <button class="btn ghost" id="btnExport" type="button">Exportar backup (JSON)</button>
+
               <label class="btn ghost" for="importFile" style="cursor:pointer;">Importar</label>
               <input id="importFile" type="file" accept="application/json" style="display:none;" />
             </div>
+
             <div class="row gap" style="margin-top:10px;">
-              <button class="btn danger" id="btnReset">Apagar tudo</button>
+              <button class="btn danger" id="btnReset" type="button">Apagar tudo</button>
             </div>
           </div>
 
           <div class="card inner">
             <h3>Online (Supabase)</h3>
             <p class="muted">Cole aqui as chaves para sincronizar.</p>
+
             <div class="form2">
               <div class="field full">
                 <label>SUPABASE_URL</label>
                 <input class="input" id="sbUrl" placeholder="https://xxxx.supabase.co" />
               </div>
+
               <div class="field full">
                 <label>SUPABASE_ANON_KEY</label>
                 <input class="input" id="sbKey" placeholder="eyJ..." />
               </div>
+
               <button class="btn big full" id="btnSaveOnline" type="button">Guardar e ativar online</button>
+            </div>
+
+            <!-- o script usa este status -->
+            <p class="muted" id="autoBackupStatus" style="margin-top:10px">Auto-backup…</p>
+
+            <div class="grid two" style="margin-top:10px">
+              <div class="field">
+                <label>Intervalo (minutos)</label>
+                <input class="input" id="autoBackupMinutes" type="number" min="5" step="1" />
+              </div>
+
+              <div class="field">
+                <label>Recuperação</label>
+                <button class="btn ghost full" id="btnRestoreAutoSnapshot" type="button">
+                  Restaurar último snapshot
+                </button>
+              </div>
             </div>
           </div>
         </div>
-<!-- UTILIZADORES (apenas Admin) -->
-<div class="card inner" id="usersCard" style="display:none;">
-  <div class="row between">
-    <h3>Utilizadores</h3>
-    <button class="btn" id="btnAddUser" type="button">+ Novo utilizador</button>
-  </div>
 
-  <p class="muted" style="margin-top:6px">
-    Apenas Admin pode criar/editar utilizadores. Gestão/Caixa entram com PIN.
-  </p>
-
-  <div id="usersList" class="list"></div>
-</div>
-
-        
-        <!-- Auto-backup (dentro do Config) -->
-        <div class="card inner" style="margin-top:12px">
-          <h3>Auto-backup</h3>
-          <p class="muted" id="autoBackupStatus">Auto-backup…</p>
-
-          <div class="grid two">
-            <div class="field">
-              <label>Intervalo (minutos)</label>
-              <input class="input" id="autoBackupMinutes" type="number" min="5" step="1">
-            </div>
-
-            <div class="field">
-              <label>Recuperação</label>
-              <button class="btn ghost full" id="btnRestoreAutoSnapshot" type="button">Restaurar último snapshot</button>
-            </div>
+        <!-- UTILIZADORES (apenas Admin) -->
+        <div class="card inner" id="usersCard" style="display:none;">
+          <div class="row between">
+            <h3>Utilizadores</h3>
           </div>
+<button class="btn" id="btnAddUser" type="button">+ Novo utilizador</button>
 
-          <p class="muted" style="margin-top:8px">
-            Snapshots são cópias automáticas no aparelho. Para ficheiro, use “Export”.
+          <p class="muted" style="margin-top:6px">
+            Apenas Admin pode criar/editar utilizadores. Gestão/Caixa entram com PIN.
           </p>
+
+          <div id="usersList" class="list"></div>
         </div>
       </div>
     </section>
@@ -484,20 +560,21 @@
     <section class="page" id="suporte">
       <div class="card">
         <h2>Suporte</h2>
+
         <div class="grid two">
           <div class="card inner">
             <h3>FAQ</h3>
             <ul class="muted">
               <li>Vendas → adicionar no carrinho → finalizar.</li>
               <li>Compras → salvar compra (entra no armazém).</li>
-              <li>Home → Nova conta (formas de pagamento).</li>
+              <li>Home → editar/apagar contas (formas de pagamento).</li>
             </ul>
           </div>
 
           <div class="card inner">
             <h3>Reportar problema</h3>
             <textarea class="input" id="issueText" rows="5" placeholder="Descreva o problema..."></textarea>
-            <button class="btn big" id="btnSendIssue">Enviar</button>
+            <button class="btn big" id="btnSendIssue" type="button">Enviar</button>
             <div class="muted" id="issueSent" style="margin-top:10px;"></div>
           </div>
         </div>
@@ -506,8 +583,8 @@
   </main>
 </div>
 
-<!-- MODAL -->
-<div class="modal" id="modal">
+<!-- MODAL (tem que iniciar escondido, senão bloqueia o clique no ecrã) -->
+<div class="modal" id="modal" style="display:none">
   <div class="modal-card">
     <div class="row between">
       <h3 id="modalTitle">Modal</h3>

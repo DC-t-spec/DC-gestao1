@@ -9,22 +9,30 @@
   --danger:#fb7185;
   --shadow: 0 12px 30px rgba(0,0,0,.35);
   --r:18px;
+
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+
+  --sidebar-w: 270px;
+  --sidebar-w-collapsed: 72px;
 }
 
 *{box-sizing:border-box}
+
 body{
   margin:0;
   font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
-  background: radial-gradient(1200px 800px at 20% 10%, rgba(94,234,212,.15), transparent 60%),
-              radial-gradient(900px 700px at 90% 20%, rgba(99,102,241,.18), transparent 55%),
-              var(--bg);
+  background:
+    radial-gradient(1200px 800px at 20% 10%, rgba(94,234,212,.15), transparent 60%),
+    radial-gradient(900px 700px at 90% 20%, rgba(99,102,241,.18), transparent 55%),
+    var(--bg);
   color:var(--text);
 }
 
+/* ===== LAYOUT BASE ===== */
 .app{
   min-height: 100vh;
   display:grid;
-  grid-template-columns: 270px 1fr;
+  grid-template-columns: var(--sidebar-w) 1fr;
 }
 
 .sidebar{
@@ -35,8 +43,12 @@ body{
   position: sticky;
   top:0;
   height: 100vh;
+  overflow-y: auto;
 }
 
+.main{padding: 18px 18px 60px;}
+
+/* ===== BRAND / MENU ===== */
 .brand{display:flex; align-items:center; gap:12px; margin-bottom: 14px;}
 .logo{
   width:42px;height:42px;border-radius: 14px;
@@ -64,6 +76,7 @@ body{
   border-color: rgba(94,234,212,.55);
   box-shadow: 0 0 0 3px rgba(94,234,212,.12);
 }
+
 .sidefoot{margin-top: 14px; display:flex; flex-direction:column; gap:8px;}
 .pill{
   border:1px solid var(--line);
@@ -75,8 +88,7 @@ body{
 }
 .pill.subtle{color: var(--muted);}
 
-.main{padding: 18px 18px 60px;}
-
+/* ===== TOPBAR ===== */
 .topbar{
   display:flex;
   justify-content:space-between;
@@ -86,12 +98,18 @@ body{
 }
 h1{margin:0; font-size: 24px}
 .crumb p{margin:6px 0 0; color:var(--muted); font-size: 13px}
-
 .top-actions{display:flex; gap:10px; flex-wrap:wrap;}
 
+.top-user{display:flex; align-items:center; gap:10px;}
+@media (max-width: 860px){
+  #userBadge{ display:none; }
+}
+
+/* ===== PAGES ===== */
 .page{display:none}
 .page.active{display:block}
 
+/* ===== CARDS / GRIDS ===== */
 .card{
   border:1px solid var(--line);
   border-radius: var(--r);
@@ -105,12 +123,14 @@ h1{margin:0; font-size: 24px}
 .grid{display:grid; gap:12px;}
 .grid.two{grid-template-columns: 1fr 1fr;}
 .grid.kpis{grid-template-columns: repeat(3, minmax(0,1fr));}
+
 @media (max-width: 980px){
   .app{grid-template-columns: 1fr;}
   .sidebar{position: relative; height:auto;}
   .grid.two{grid-template-columns:1fr;}
   .grid.kpis{grid-template-columns:1fr;}
 }
+
 @media (max-width: 560px){
   .topbar{flex-direction:column; align-items:flex-start}
 }
@@ -123,6 +143,7 @@ h1{margin:0; font-size: 24px}
 .row.between{justify-content:space-between}
 .row.gap{gap:10px; flex-wrap:wrap}
 
+/* ===== BUTTONS ===== */
 .btn{
   border: 1px solid rgba(94,234,212,.45);
   background: rgba(94,234,212,.10);
@@ -145,6 +166,7 @@ h1{margin:0; font-size: 24px}
 .btn.big{padding: 12px 14px; border-radius: 14px; width: 100%;}
 hr{border:none;border-top:1px solid var(--line); margin: 12px 0;}
 
+/* ===== INPUTS ===== */
 .input, select, textarea{
   width:100%;
   padding: 10px 12px;
@@ -157,6 +179,7 @@ hr{border:none;border-top:1px solid var(--line); margin: 12px 0;}
 .input::placeholder{color: rgba(169,182,214,.65)}
 select option{color:#111}
 
+/* ===== LISTS ===== */
 .list{display:flex; flex-direction:column; gap:10px; margin-top: 12px;}
 .item{
   border:1px solid var(--line);
@@ -182,6 +205,8 @@ select option{color:#111}
 @media (max-width: 980px){ .split{grid-template-columns: 1fr;} }
 
 .pane{min-height: 520px;}
+
+/* ===== CATALOG ===== */
 .catalog{
   margin-top: 12px;
   display:grid;
@@ -212,6 +237,7 @@ select option{color:#111}
 .pmuted{color:var(--muted); font-size: 12px; display:flex; gap:10px; flex-wrap:wrap;}
 .padd{margin-top: 10px; width:100%;}
 
+/* ===== FORMS ===== */
 .form{display:grid; gap:10px; grid-template-columns:1fr 1fr;}
 @media (max-width: 560px){ .form{grid-template-columns:1fr;} }
 
@@ -219,17 +245,18 @@ select option{color:#111}
 .form2 .full{grid-column: 1 / -1;}
 .note{border:1px dashed rgba(94,234,212,.45); background: rgba(94,234,212,.08); border-radius: 14px; padding: 10px 12px;}
 .totals{margin-top: 12px;}
+
+/* ===== MODAL ===== */
 .modal{
   position: fixed;
   inset: 0;
-  display: none;              /* começa escondido */
+  display: none;
   align-items: center;
   justify-content: center;
   padding: 16px;
   background: rgba(0,0,0,.55);
-  z-index: 9999;              /* fica por cima de tudo */
+  z-index: 9999;
 }
-
 .modal-card{
   width: min(560px, 100%);
   border: 1px solid rgba(255,255,255,.12);
@@ -238,60 +265,144 @@ select option{color:#111}
   padding: 14px;
   box-shadow: 0 12px 30px rgba(0,0,0,.35);
 }
-/* =========================
-   MOBILE UX UPGRADE
-   ========================= */
 
-:root{
-  --safe-bottom: env(safe-area-inset-bottom, 0px);
+/* ===== AUTH ===== */
+.auth{
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: rgba(0,0,0,.55);
+  z-index: 99999;
+}
+.auth-card{
+  width: min(460px, 100%);
+  background: #0f172a;
+  border: 1px solid rgba(255,255,255,.12);
+  border-radius: 18px;
+  padding: 14px;
+  box-shadow: 0 16px 50px rgba(0,0,0,.45);
+}
+.auth-head{
+  display:flex;
+  gap: 10px;
+  align-items:center;
+  margin-bottom: 10px;
+}
+.auth .logo{
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  background: rgba(255,255,255,.08);
+  border: 1px solid rgba(255,255,255,.12);
+  font-weight: 700;
 }
 
-/* tornar tudo mais “compacto” no mobile */
+/* AUTH acima do site, mas abaixo do MODAL */
+#authScreen{
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+}
+
+/* modal sempre por cima */
+#modal{
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0,0,0,.45);
+}
+#modal .modal-card{
+  position: relative;
+  z-index: 10000;
+  max-width: 560px;
+  width: min(560px, 92vw);
+}
+
+/* ===== OVERLAY (funciona com .overlay e #overlay) ===== */
+.overlay,
+#overlay{
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,.45);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .2s ease;
+  z-index: 9998;
+}
+
+/* ===== SIDEBAR COLLAPSE (DESKTOP) ===== */
+body.sidebar-collapsed .app{
+  grid-template-columns: var(--sidebar-w-collapsed) 1fr;
+}
+body.sidebar-collapsed .sidebar{
+  width: var(--sidebar-w-collapsed);
+}
+body.sidebar-collapsed .sidebar .mitem{
+  justify-content: center;
+  gap: 0;
+  padding: 12px 8px;
+}
+body.sidebar-collapsed .sidebar .mitem span.label{
+  display: none;
+}
+body.sidebar-collapsed .sidebar .mitem{
+  font-size: 0;
+}
+body.sidebar-collapsed .sidebar .mitem::before{
+  content: attr(data-ico);
+  font-size: 16px;
+}
+
+/* ===== MOBILE (DRAWER) ===== */
 @media (max-width: 860px){
 
-  /* layout geral */
   body{ font-size: 15px; }
 
-  .app{
-    display: block !important;
-  }
+  /* app em bloco */
+  .app{ display:block !important; }
 
-  /* sidebar vira barra inferior */
+  /* sidebar vira drawer */
   .sidebar{
-    position: fixed;
-    left: 0; right: 0; bottom: 0;
-    height: 64px;
-    padding: 8px 10px calc(8px + var(--safe-bottom));
-    display: flex;
-    gap: 8px;
-    align-items: center;
-    justify-content: space-between;
-    overflow-x: auto;
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    bottom: 0 !important;
+    right: auto !important;
+
+    width: 240px !important;
+    height: 100vh !important;
+
+    transform: translateX(-105%);
+    transition: transform .2s ease;
+
     z-index: 9999;
-    border-top: 1px solid rgba(255,255,255,.12);
-    border-right: none !important;
+    border-right: 1px solid rgba(255,255,255,.12) !important;
+    border-top: none !important;
+
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    padding: 16px !important;
   }
 
-  /* esconder logo grande / textos longos do menu no mobile (opcional) */
-  .brand, .sidebar .subtitle, .sidebar .big-only { display:none !important; }
-
-  /* botões do menu: compactos e fáceis de clicar */
-  .mitem{
-    flex: 1 0 auto;
-    min-width: 66px;
-    padding: 10px 10px;
-    border-radius: 14px;
-    font-size: 12px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 6px;
-    white-space: nowrap;
+  /* abre */
+  body.menu-open .sidebar{
+    transform: translateX(0) !important;
   }
 
-  /* área principal precisa de espaço para não ficar escondida atrás da barra inferior */
-  .main{
-    padding: 12px 12px 92px !important;
+  /* overlay aparece */
+  body.menu-open .overlay,
+  body.menu-open #overlay{
+    opacity: 1;
+    pointer-events: auto;
   }
 
   /* header mais compacto */
@@ -304,258 +415,77 @@ select option{color:#111}
     backdrop-filter: blur(8px);
   }
 
-  /* grids viram 1 coluna */
+  /* grids em 1 coluna */
   .grid,
   .grid.two,
   .grid.three{
-    display: grid;
+    display:grid !important;
     grid-template-columns: 1fr !important;
     gap: 10px !important;
   }
 
-  /* cards mais “apertados” e alinhados */
-  .card{
-    padding: 12px !important;
-    border-radius: 16px !important;
-  }
-
-  /* listas e itens mais próximos */
+  .card{ padding: 12px !important; border-radius: 16px !important; }
   .list{ gap: 10px !important; }
   .item{ padding: 12px !important; border-radius: 16px !important; }
 
-  /* botões full width no mobile quando fizer sentido */
-  .btn.big, .btn.full{
-    width: 100% !important;
-  }
+  .btn.big, .btn.full{ width: 100% !important; }
 
-  /* inputs maiores e mais fáceis de tocar */
   .input{
     padding: 12px 12px !important;
     border-radius: 14px !important;
     font-size: 15px !important;
   }
 
-  /* catálogo e carrinho (vendas) em coluna */
   .sales-layout{
-    display: grid !important;
+    display:grid !important;
     grid-template-columns: 1fr !important;
     gap: 12px !important;
   }
 
-  /* cards do produto no catálogo */
-  .pcard{
-    border-radius: 16px !important;
-  }
-
-  /* modal responsivo */
   .modal-card{
     width: min(560px, 96vw) !important;
     max-height: 86vh;
     overflow: auto;
   }
-}
-/* =========================
-   MOBILE: MENU ESQUERDA + CONTEÚDO DIREITA (COLAPSÁVEL)
-   ========================= */
 
-:root{
-  --sidebar-w: 240px;
-  --sidebar-w-collapsed: 72px;
-}
-
-/* Base layout (desktop e mobile) */
-.app{
-  display: grid;
-  grid-template-columns: var(--sidebar-w) 1fr;
-  min-height: 100vh;
-}
-
-.sidebar{
-  position: sticky;
-  top: 0;
-  height: 100vh;
-  overflow-y: auto;
-  border-right: 1px solid rgba(255,255,255,.12);
-}
-
-/* Quando minimiza */
-body.sidebar-collapsed .app{
-  grid-template-columns: var(--sidebar-w-collapsed) 1fr;
-}
-
-body.sidebar-collapsed .sidebar{
-  width: var(--sidebar-w-collapsed);
-}
-
-/* Esconder textos no menu minimizado (fica só ícones) */
-body.sidebar-collapsed .sidebar .mitem{
-  justify-content: center;
-  gap: 0;
-  padding: 12px 8px;
-}
-body.sidebar-collapsed .sidebar .mitem span.label{
-  display: none;
-}
-
-/* Se o teu botão do menu não usa <span class="label">,
-   então faz assim: esconder tudo depois do emoji */
-body.sidebar-collapsed .sidebar .mitem{
-  font-size: 0;          /* esconde texto */
-}
-body.sidebar-collapsed .sidebar .mitem::before{
-  content: attr(data-ico);
-  font-size: 16px;       /* mostra ícone */
-}
-
-/* Ajuste opcional: coloca data-ico nos botões do menu (ver abaixo) */
-
-
-/* =========================
-   MOBILE TUNING
-   ========================= */
-@media (max-width: 860px){
-
-  :root{
-    --sidebar-w: 210px;               /* menu um pouco menor no celular */
-    --sidebar-w-collapsed: 62px;
-  }
-
+  /* main ocupa tudo */
   .main{
-    padding: 12px 12px 16px !important;
-  }
-
-  /* cards/grids em 1 coluna no celular */
-  .grid, .grid.two, .grid.three{
-    grid-template-columns: 1fr !important;
-    gap: 10px !important;
-  }
-
-  .card, .item{
-    padding: 12px !important;
-    border-radius: 16px !important;
-  }
-
-  .input{
-    padding: 12px 12px !important;
-    border-radius: 14px !important;
-    font-size: 15px !important;
+    padding: 12px 12px 18px !important;
   }
 }
-/* overlay */
-.overlay{
-  position: fixed;
-  inset: 0;
-  background: rgba(0,0,0,.45);
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity .2s ease;
-  z-index: 9998;
-}
 
-/* no mobile, sidebar vira drawer */
-body.is-mobile .app{ display:block !important; }
-
-body.is-mobile .sidebar{
-  position: fixed !important;
-  top: 0; left: 0; bottom: 0;
-  width: 240px !important;
-  transform: translateX(-105%);
-  transition: transform .2s ease;
-  z-index: 9999;
-}
-
-body.is-mobile.menu-open .sidebar{ transform: translateX(0); }
-
-body.is-mobile.menu-open .overlay{
-  opacity: 1;
+/* garantir botão menu clicável */
+#sidebarToggle{
+  position: relative;
+  z-index: 10050;
   pointer-events: auto;
 }
-
-/* main ocupa tudo */
-body.is-mobile .main{ padding: 12px 12px 18px !important; }
-
-/* 1 coluna no mobile */
-body.is-mobile .grid,
-body.is-mobile .grid.two,
-body.is-mobile .grid.three{
-  grid-template-columns: 1fr !important;
-  gap: 10px !important;
-}
-/* ===== Auth Screen ===== */
-.auth{
-  position: fixed;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 16px;
-  background: rgba(0,0,0,.55);
-  z-index: 99999;
-}
-
-.auth-card{
-  width: min(460px, 100%);
-  background: #0f172a;
-  border: 1px solid rgba(255,255,255,.12);
-  border-radius: 18px;
-  padding: 14px;
-  box-shadow: 0 16px 50px rgba(0,0,0,.45);
-}
-
-.auth-head{
+/* ===== Relatórios visuais (menu) ===== */
+.reports-menu{
   display:flex;
-  gap: 10px;
-  align-items:center;
-  margin-bottom: 10px;
+  flex-direction:column;
+  gap:8px;
+}
+.reports-menu .repbtn{
+  text-align:left;
+}
+.reports-menu .repbtn.active{
+  border-color: rgba(94,234,212,.55);
+  box-shadow: 0 0 0 3px rgba(94,234,212,.12);
 }
 
-.auth .logo{
-  width: 44px;
-  height: 44px;
-  border-radius: 14px;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  background: rgba(255,255,255,.08);
-  border: 1px solid rgba(255,255,255,.12);
-  font-weight: 700;
-}
-.topbar{
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  gap:12px;
-}
-.top-user{
-  display:flex;
-  align-items:center;
-  gap:10px;
-}
+/* no mobile, menu em scroll horizontal */
 @media (max-width: 860px){
-  #userBadge{ display:none; } /* no mobile fica mais limpo */
+  .reports-menu{
+    flex-direction:row;
+    overflow-x:auto;
+    padding-bottom:6px;
+  }
+  .reports-menu .repbtn{
+    white-space:nowrap;
+    flex: 0 0 auto;
+  }
 }
-/* AUTH: fica acima do site, mas abaixo do MODAL */
-#authScreen{
-  position: fixed;
-  inset: 0;
-  z-index: 1000;
-}
-
-/* MODAL: sempre por cima de tudo */
-#modal{
-  position: fixed;
-  inset: 0;
-  z-index: 9999;
-  display: none;          /* o JS muda para flex */
-  align-items: center;
-  justify-content: center;
-  background: rgba(0,0,0,.45);
-}
-
-/* o cartão do modal */
-#modal .modal-card{
-  position: relative;
-  z-index: 10000;
-  max-width: 560px;
-  width: min(560px, 92vw);
+#repCustomDates{
+  align-items: flex-end;
 }

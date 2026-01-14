@@ -1,17 +1,25 @@
+(() => {
+  "use strict";
+
+  // TODO: cola TODO teu script aqui dentro
 /***********************
- * Gestão Fácil - V1 (JS COMPLETO CORRIGIDO)
- * Offline + Online (Supabase opcional)
- * + Auto-backup (local snapshots)
- * + Auth (PIN + níveis)
- * + Permissões (admin / manager / staff)
- * + Gestão de Utilizadores (Admin) na Config
- * + Logout (top) seguro
- * + Menu responsivo (drawer mobile + colapsar sidebar desktop)
- * + Recuperação de PIN (Pergunta/Resposta) + Reset Admin + MustChangePin
+ * Gestão Fácil - V1 (CODEPEN • JS ÚNICO COMPLETO • CORRIGIDO)
+ * Offline-first + Online (Supabase opcional)
+ * Auto-backup snapshots
+ * Auth (PIN + roles) + recuperação por pergunta
+ * Permissões (admin / manager / staff)
+ * Stock base (pacotes) usando stockBaseId + stockFactor
+ * Inventário/Correção com histórico
+ * Relatórios visuais (12) com filtros + SVG
  *
- * ✅ Sem funções duplicadas
- * ✅ Um único DOMContentLoaded (1 boot)
- * ✅ Event delegation onde faz sentido (listas renderizadas)
+ * ✅ Correções aplicadas (do teu script):
+ * - Removido: funções/consts duplicadas (Workspace)
+ * - Corrigido: syncNow duplicado/aninhado
+ * - Corrigido: modalCompanySetup com HTML/JS misturado
+ * - Corrigido: wsInput declarado 2x no DOMContentLoaded
+ * - Corrigido: código solto que usava "e" fora do submit listener
+ * - Corrigido: btnAddUser não declarado
+ * - Corrigido: requireWorkspaceIdOrWarn estava fora do click (parava o boot)
  ************************/
 
 /* =======================
@@ -20,10 +28,13 @@
 const MT = (n) => `${Number(n || 0).toFixed(2)} MT`;
 const todayISO = () => new Date().toISOString().slice(0, 10);
 const uid = () =>
-  crypto?.randomUUID
+  window.crypto && crypto.randomUUID
     ? crypto.randomUUID()
     : Math.random().toString(16).slice(2) + Date.now().toString(16);
+
 const byName = (a, b) => (a.nome || "").localeCompare(b.nome || "");
+const safeText = (s) =>
+  String(s ?? "").replace(/[<>&"]/g, (c) => ({ "<": "&lt;", ">": "&gt;", "&": "&amp;", '"': "&quot;" }[c]));
 
 /* =======================
    Storage
@@ -46,27 +57,49 @@ const saveLocal = (db) => localStorage.setItem(KEY, JSON.stringify(db));
 ======================= */
 let db =
   loadLocal() || {
-    meta: { updatedAt: Date.now(), version: 1 },
+    meta: { updatedAt: Date.now(), version: 1, workspaceId: "" },
     online: { url: "", key: "" },
 
     users: [],
     auth: { currentUserId: null },
 
+    company: { nome: "", nuit: "", contacto: "", morada: "", email: "" },
 
-    // DATA
     accounts: [{ id: uid(), nome: "Dinheiro", tipo: "Dinheiro", ativo: true, saldo: 0 }],
     customers: [{ id: uid(), nome: "Cliente balcão", telefone: "", notas: "" }],
     products: [
-      { id: uid(), nome: "Refresco 500ml", precoVenda: 35, precoAquisicaoRef: 22, minStock: 5, img: "", desc: "", ativo: true },
-      { id: uid(), nome: "Bolo fatia", precoVenda: 50, precoAquisicaoRef: 30, minStock: 3, img: "", desc: "", ativo: true },
+      {
+        id: uid(),
+        nome: "Refresco 500ml",
+        precoVenda: 35,
+        precoAquisicaoRef: 22,
+        minStock: 5,
+        img: "",
+        desc: "",
+        ativo: true,
+        stockBaseId: "",
+        stockFactor: 1,
+      },
+      {
+        id: uid(),
+        nome: "Bolo fatia",
+        precoVenda: 50,
+        precoAquisicaoRef: 30,
+        minStock: 3,
+        img: "",
+        desc: "",
+        ativo: true,
+        stockBaseId: "",
+        stockFactor: 1,
+      },
     ],
     inventory: {},
 
     purchases: [],
     sales: [],
     ledger: [],
+    inventoryAdjustments: [],
 
-    // SETTINGS
     settings: { autoBackupMinutes: 10 },
   };
 
@@ -88,6 +121,66 @@ function setSyncState(text) {
 function setAppLocked(locked) {
   const app = document.querySelector(".app");
   if (app) app.style.display = locked ? "none" : "flex";
+}
+
+/* =======================
+   Workspace (ID da Loja) - ÚNICO (sem duplicação)
+======================= */
+const WS_KEY = "gestao_facil_workspace_id";
+
+function normalizeWorkspaceId(v) {
+  return String(v || "")
+    .trim()
+    .toUpperCase()
+    .replace(/\s+/g, "-")
+    .replace(/[^A-Z0-9\-]/g, "");
+}
+
+function ensureWorkspaceModel() {
+  db.meta = db.meta || {};
+  if (db.meta.workspaceId == null) db.meta.workspaceId = "";
+  db.company = db.company || { nome: "", nuit: "", contacto: "", morada: "", email: "" };
+
+  // sincroniza localStorage <-> db.meta.workspaceId
+  const ls = normalizeWorkspaceId(localStorage.getItem(WS_KEY) || "");
+  if (ls && !db.meta.workspaceId) db.meta.workspaceId = ls;
+  if (db.meta.workspaceId) localStorage.setItem(WS_KEY, normalizeWorkspaceId(db.meta.workspaceId));
+}
+
+function getWorkspaceId() {
+  ensureWorkspaceModel();
+  const v = normalizeWorkspaceId(db.meta.workspaceId || localStorage.getItem(WS_KEY) || "");
+  return v;
+}
+
+function setWorkspaceId(v) {
+  ensureWorkspaceModel();
+  const id = normalizeWorkspaceId(v);
+  db.meta.workspaceId = id;
+  localStorage.setItem(WS_KEY, id);
+  touch();
+  return id;
+}
+
+function generateWorkspaceId(prefix = "DCNET") {
+  const rnd = Math.random().toString(36).slice(2, 6).toUpperCase();
+  return `${normalizeWorkspaceId(prefix)}-LOJA-${rnd}`;
+}
+function copyWorkspaceId(){
+  const ws = getWorkspaceId();
+  if (!ws) return alert("Sem workspace definido.");
+  navigator.clipboard.writeText(ws).then(() => alert("ID copiado!"));
+}
+
+function requireWorkspaceIdOrWarn() {
+  const ws = getWorkspaceId();
+  if (!ws) {
+    alert("Defina o ID da Loja/Base partilhada. Pode clicar em 'Gerar'.");
+    const input = document.getElementById("workspaceId");
+    if (input) input.focus();
+    return false;
+  }
+  return true;
 }
 
 /* =======================
@@ -120,27 +213,28 @@ async function initSupabaseIfConfigured() {
   setSyncState("Modo: Online (Supabase)");
 }
 
-function getDeviceId() {
-  const k = "gestao_facil_device_id";
-  let v = localStorage.getItem(k);
-  if (!v) {
-    v = uid();
-    localStorage.setItem(k, v);
-  }
-  return v;
-}
-
 async function syncNow() {
   if (!supabase) {
     alert("Online não está configurado. Vá em Config e cole SUPABASE_URL e KEY (ou use offline).");
     return;
   }
 
-  setSyncState("Sincronizando...");
-  const deviceId = getDeviceId();
-  const payload = { device_id: deviceId, data: db, updated_at: new Date().toISOString() };
+  const workspaceId = getWorkspaceId();
+  if (!workspaceId) {
+    alert("Defina o ID da Loja antes de sincronizar.");
+    return;
+  }
 
-  const { error } = await supabase.from("snapshots").upsert(payload, { onConflict: "device_id" });
+  setSyncState("Sincronizando...");
+
+  const payload = {
+    workspace_id: workspaceId,
+    data: db,
+    updated_at: new Date().toISOString(),
+  };
+
+  const { error } = await supabase.from("snapshots").upsert(payload, { onConflict: "workspace_id" });
+
   if (error) {
     console.error(error);
     setSyncState("Online (erro)");
@@ -151,7 +245,7 @@ async function syncNow() {
   const { data, error: e2 } = await supabase
     .from("snapshots")
     .select("*")
-    .eq("device_id", deviceId)
+    .eq("workspace_id", workspaceId)
     .single();
 
   if (e2) {
@@ -186,7 +280,7 @@ function closeModal() {
 }
 
 /* =======================
-   Core helpers
+   Core helpers (DB)
 ======================= */
 function invQty(productId) {
   return Number(db.inventory?.[productId] || 0);
@@ -204,68 +298,172 @@ function customerName(id) {
 function productById(id) {
   return db.products.find((p) => p.id === id);
 }
-function getGbBaseProduct(){
-  // procura por kind primeiro; fallback para nome "GB"
-  return db.products.find(p => p?.kind === "base_gb") || db.products.find(p => (p?.nome || "").trim().toUpperCase() === "GB");
+function ensureInventoryAdjustmentsModel() {
+  if (!db.inventoryAdjustments) db.inventoryAdjustments = [];
 }
 
-function isPackage(p){
-  return p && p.kind === "package" && Number(p.gbQty || 0) > 0;
-}
-
-function stockForProduct(productId){
+/* =======================
+   Stock Base (Pacotes)
+======================= */
+function baseIdForProduct(productId) {
   const p = productById(productId);
-  if(!p) return 0;
+  if (!p) return null;
+  const base = p.stockBaseId && String(p.stockBaseId).trim() ? p.stockBaseId : p.id;
+  return base;
+}
 
-  // PACOTE: stock “virtual” = quantos pacotes dá para montar com o stock do GB
-  if(isPackage(p)){
-    const gb = getGbBaseProduct();
-    if(!gb) return 0;
-    const gbStock = invQty(gb.id);
-    const perPack = Number(p.gbQty || 0);
-    return perPack > 0 ? Math.floor(gbStock / perPack) : 0;
+function factorForProduct(productId) {
+  const p = productById(productId);
+  if (!p) return 1;
+  const f = Number(p.stockFactor || 1);
+  return Number.isFinite(f) && f > 0 ? f : 1;
+}
+
+function stockForProduct(productId) {
+  const baseId = baseIdForProduct(productId);
+  if (!baseId) return 0;
+  const baseStock = invQty(baseId);
+  const factor = factorForProduct(productId);
+  return factor > 0 ? Math.floor(baseStock / factor) : 0;
+}
+
+function consumeStockForSaleItem(productId, qtyUnits) {
+  const baseId = baseIdForProduct(productId);
+  if (!baseId) throw new Error("Stock base não encontrado.");
+  const factor = factorForProduct(productId);
+  const need = Number(qtyUnits || 0) * factor;
+
+  const current = invQty(baseId);
+  if (need > current) throw new Error("Stock insuficiente (base).");
+
+  setInv(baseId, current - need);
+}
+
+function costUnitFor(productId) {
+  const p = productById(productId);
+  if (!p) return 0;
+
+  const baseId = baseIdForProduct(productId);
+  if (!baseId) return Number(p.precoAquisicaoRef || 0);
+
+  if (baseId !== p.id) {
+    const base = productById(baseId);
+    const baseCost = Number(base?.precoAquisicaoRef || 0);
+    return factorForProduct(productId) * baseCost;
   }
 
-  // NORMAL: stock próprio como sempre
-  return invQty(productId);
-}
-
-function consumeStockForSaleItem(productId, qty){
-  const p = productById(productId);
-  if(!p) throw new Error("Produto não encontrado.");
-
-  // PACOTE: desconta do GB
-  if(isPackage(p)){
-    const gb = getGbBaseProduct();
-    if(!gb) throw new Error("Produto base 'GB' não está configurado.");
-    const need = Number(p.gbQty || 0) * Number(qty || 0);
-    const current = invQty(gb.id);
-    if(need > current) throw new Error("Stock de GB insuficiente.");
-    setInv(gb.id, current - need);
-    return;
-  }
-
-  // NORMAL: desconta do próprio produto
-  const current = invQty(productId);
-  if(qty > current) throw new Error("Stock insuficiente.");
-  setInv(productId, current - qty);
-}
-
-function costUnitFor(productId){
-  const p = productById(productId);
-  if(!p) return 0;
-
-  // PACOTE: custo = gbQty * custoPorGB
-  if(isPackage(p)){
-    const gb = getGbBaseProduct();
-    const gbCost = Number(gb?.precoAquisicaoRef || 0);
-    return Number(p.gbQty || 0) * gbCost;
-  }
-
-  // NORMAL: custo padrão
   return Number(p.precoAquisicaoRef || 0);
 }
 
+/* =======================
+   Inventário / Correção
+======================= */
+function modalInventoryAdjust(productId) {
+  const p = productById(productId);
+  if (!p) return;
+
+  ensureInventoryAdjustmentsModel();
+
+  const baseId = baseIdForProduct(productId);
+  const baseP = productById(baseId);
+  const isPkg = baseId !== productId;
+  const currentBase = invQty(baseId);
+
+  openModal(
+    "Ajuste de stock (Inventário / Correção)",
+    `
+      <form id="invAdjustForm" class="form2" data-pid="${productId}">
+        <div class="field full">
+          <label>Produto</label>
+          <input class="input" disabled value="${safeText(p.nome || "—")}" />
+        </div>
+
+        <div class="field full">
+          <label>Onde vai ajustar</label>
+          <input class="input" disabled value="${
+            isPkg
+              ? `Stock base: ${(baseP?.nome || "—")} (porque este produto consome base)`
+              : `Stock do próprio produto`
+          }" />
+          <small class="muted">${
+            isPkg ? `Stock atual do base (${baseP?.nome || "—"}): ${currentBase}` : `Stock atual: ${invQty(productId)}`
+          }</small>
+        </div>
+
+        <div class="field">
+          <label>Tipo</label>
+          <select class="input" id="invAdjType">
+            <option value="in">Entrada (+)</option>
+            <option value="out">Saída (-)</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label>Quantidade</label>
+          <input class="input" id="invAdjQty" type="number" min="0" step="1" value="1" required />
+        </div>
+
+        <div class="field full">
+          <label>Motivo</label>
+          <input class="input" id="invAdjReason" placeholder="Ex: Perdi 2GB / devolução / contagem física" />
+        </div>
+
+        <div class="field">
+          <label>Data</label>
+          <input class="input" id="invAdjDate" type="date" value="${todayISO()}" />
+        </div>
+
+        <div class="field">
+          <label>Observação (opcional)</label>
+          <input class="input" id="invAdjNote" placeholder="Ex: contagem feita por Deny" />
+        </div>
+
+        <button class="btn big full" type="submit">Aplicar ajuste</button>
+      </form>
+    `
+  );
+}
+
+function applyInventoryAdjustment(productId, type, qty, reason, date, note) {
+  ensureInventoryAdjustmentsModel();
+
+  const p = productById(productId);
+  if (!p) throw new Error("Produto não encontrado.");
+
+  const baseId = baseIdForProduct(productId);
+  const targetId = baseId;
+  const current = invQty(targetId);
+
+  const q = Math.max(0, Number(qty || 0));
+  if (q <= 0) throw new Error("Quantidade inválida.");
+
+  const delta = type === "out" ? -q : +q;
+  const next = current + delta;
+
+  if (next < 0) throw new Error("Não é possível ficar com stock negativo.");
+
+  setInv(targetId, next);
+
+  db.inventoryAdjustments.push({
+    id: uid(),
+    date: date || todayISO(),
+    createdAt: Date.now(),
+    productId,
+    targetId,
+    type: type === "out" ? "out" : "in",
+    qty: q,
+    delta,
+    reason: (reason || "").trim(),
+    note: (note || "").trim(),
+    userId: currentUser()?.id || null,
+  });
+
+  touch();
+}
+
+/* =======================
+   Ledger / contas
+======================= */
 function addLedger({ date, type, accountId, amount, refType, refId, note }) {
   db.ledger.push({
     id: uid(),
@@ -296,7 +494,6 @@ function calcAccountBalance(accountId) {
 function saveAutoSnapshot() {
   try {
     const list = JSON.parse(localStorage.getItem(BACKUP_KEY) || "[]");
-    // deep copy para não apontar por referência
     list.push({ at: Date.now(), db: JSON.parse(JSON.stringify(db)) });
     while (list.length > BACKUP_MAX) list.shift();
     localStorage.setItem(BACKUP_KEY, JSON.stringify(list));
@@ -333,6 +530,7 @@ function updateBackupStatusUI() {
    touch() (única fonte de gravação)
 ======================= */
 function touch() {
+  db.meta = db.meta || {};
   db.meta.updatedAt = Date.now();
   saveLocal(db);
   saveAutoSnapshot();
@@ -347,7 +545,6 @@ function ensureAuthModel() {
   db.auth = db.auth || { currentUserId: null };
   saveLocal(db);
 }
-
 function currentUser() {
   const id = db.auth?.currentUserId;
   return db.users.find((u) => u.id === id) || null;
@@ -360,12 +557,10 @@ function isAdmin() {
   const u = currentUser();
   return !!u && u.role === "admin";
 }
-
 function setLoggedInUser(userId) {
   db.auth.currentUserId = userId;
   touch();
 }
-
 function createUser({ nome, pin, role }) {
   const cleanName = (nome || "").trim();
   const cleanPin = (pin || "").trim();
@@ -383,8 +578,6 @@ function createUser({ nome, pin, role }) {
     role,
     ativo: true,
     createdAt: Date.now(),
-
-    // recuperação
     securityQuestion: "",
     securityAnswerHash: "",
     mustChangePin: false,
@@ -394,24 +587,21 @@ function createUser({ nome, pin, role }) {
   touch();
   return user;
 }
-
 function login(nome, pin) {
   const cleanName = (nome || "").trim();
   const cleanPin = (pin || "").trim();
   const u = db.users.find((x) => x.ativo !== false && x.nome === cleanName && x.pin === cleanPin);
   if (!u) return { ok: false };
-
   setLoggedInUser(u.id);
   return { ok: true, mustChangePin: !!u.mustChangePin };
 }
 
 /* =======================
-   RECUPERAÇÃO PIN (A + B)
+   Recuperação PIN
 ======================= */
 function normalizeAnswer(s) {
   return (s || "").trim().toLowerCase();
 }
-
 async function sha256(text) {
   const enc = new TextEncoder().encode(text);
   const buf = await crypto.subtle.digest("SHA-256", enc);
@@ -419,7 +609,6 @@ async function sha256(text) {
     .map((b) => b.toString(16).padStart(2, "0"))
     .join("");
 }
-
 async function setSecurityQA(userId, question, answerPlain) {
   ensureAuthModel();
   const q = (question || "").trim();
@@ -430,20 +619,16 @@ async function setSecurityQA(userId, question, answerPlain) {
 
   const hash = await sha256(a);
 
-  db.users = db.users.map((u) =>
-    u.id !== userId ? u : { ...u, securityQuestion: q, securityAnswerHash: hash }
-  );
+  db.users = db.users.map((u) => (u.id !== userId ? u : { ...u, securityQuestion: q, securityAnswerHash: hash }));
 
   touch();
 }
-
 async function verifySecurityAnswer(userId, answerPlain) {
   const u = db.users.find((x) => x.id === userId);
   if (!u || !u.securityAnswerHash) return false;
   const hash = await sha256(normalizeAnswer(answerPlain));
   return hash === u.securityAnswerHash;
 }
-
 function adminResetPin(userId, tempPin) {
   if (!isAdmin()) return alert("Só ADMIN pode resetar PIN.");
   if (!/^\d{4,8}$/.test(String(tempPin || "").trim()))
@@ -458,7 +643,6 @@ function adminResetPin(userId, tempPin) {
 
   touch();
 }
-
 function changeMyPin(oldPin, newPin) {
   const u = currentUser();
   if (!u) return alert("Sem sessão.");
@@ -466,15 +650,12 @@ function changeMyPin(oldPin, newPin) {
   if (!/^\d{4,8}$/.test(String(newPin || "").trim()))
     return alert("Novo PIN deve ter 4–8 dígitos.");
 
-  db.users = db.users.map((x) =>
-    x.id !== u.id ? x : { ...x, pin: String(newPin).trim(), mustChangePin: false }
-  );
+  db.users = db.users.map((x) => (x.id !== u.id ? x : { ...x, pin: String(newPin).trim(), mustChangePin: false }));
 
   setLoggedInUser(u.id);
   touch();
   alert("PIN alterado!");
 }
-
 async function recoverPinByQuestion(userId, answerPlain, newPin) {
   ensureAuthModel();
   const u = db.users.find((x) => x.id === userId);
@@ -489,16 +670,14 @@ async function recoverPinByQuestion(userId, answerPlain, newPin) {
   if (!/^\d{4,8}$/.test(String(newPin || "").trim()))
     return alert("Novo PIN deve ter 4–8 dígitos.");
 
-  db.users = db.users.map((x) =>
-    x.id !== userId ? x : { ...x, pin: String(newPin).trim(), mustChangePin: false }
-  );
+  db.users = db.users.map((x) => (x.id !== userId ? x : { ...x, pin: String(newPin).trim(), mustChangePin: false }));
 
   touch();
   alert("PIN atualizado! Agora já pode iniciar sessão.");
 }
 
 /* =======================
-   Permissões (guard)
+   Permissões
 ======================= */
 function role() {
   return currentUser()?.role || null;
@@ -508,13 +687,11 @@ function can(action) {
   if (!r) return false;
 
   const rules = {
-    // críticos
     "users.manage": ["admin"],
     "system.reset": ["admin"],
     "accounts.delete": ["admin"],
     "products.delete": ["admin"],
 
-    // normais
     "accounts.create_edit": ["admin", "manager"],
     "products.create": ["admin", "manager"],
     "sales.create": ["admin", "manager", "staff"],
@@ -531,7 +708,7 @@ function guard(action, msg) {
 }
 
 /* =======================
-   Auth UI
+   Auth UI gate
 ======================= */
 function showAuthScreen(mode) {
   const auth = document.getElementById("authScreen");
@@ -553,7 +730,9 @@ function refreshLoginUsers() {
   if (!sel) return;
 
   const active = db.users.filter((u) => u.ativo !== false);
-  sel.innerHTML = active.map((u) => `<option value="${u.nome}">${u.nome} (${u.role})</option>`).join("");
+  sel.innerHTML = active
+    .map((u) => `<option value="${safeText(u.nome)}">${safeText(u.nome)} (${safeText(u.role)})</option>`)
+    .join("");
   if (hint) hint.textContent = active.length ? "" : "Sem utilizadores. Crie o primeiro Admin.";
 }
 function setRegisterCopy() {
@@ -589,16 +768,56 @@ function bootAuthGate() {
   refreshLoginUsers();
   showAuthScreen("login");
 }
-
-/* ✅ Logout (único, oficial) */
 function doLogout() {
   ensureAuthModel();
   db.auth.currentUserId = null;
   touch();
-
   setAppLocked(true);
   refreshLoginUsers();
   showAuthScreen("login");
+}
+
+/* =======================
+   Empresa UI
+======================= */
+function modalCompanySetup() {
+  ensureWorkspaceModel();
+
+  openModal(
+    "Dados da empresa",
+    `
+      <form id="companyForm" class="form2">
+        <div class="field full">
+          <label>Nome da empresa</label>
+          <input class="input" id="cmpNome" value="${safeText(db.company?.nome || "")}" placeholder="Ex: DC NET" required />
+        </div>
+
+        <div class="grid two">
+          <div class="field">
+            <label>NUIT</label>
+            <input class="input" id="cmpNuit" value="${safeText(db.company?.nuit || "")}" placeholder="Ex: 123456789" />
+          </div>
+          <div class="field">
+            <label>Contacto</label>
+            <input class="input" id="cmpContacto" value="${safeText(db.company?.contacto || "")}" placeholder="Ex: 84xxxxxxx" />
+          </div>
+        </div>
+
+        <div class="grid two">
+          <div class="field">
+            <label>Email</label>
+            <input class="input" id="cmpEmail" value="${safeText(db.company?.email || "")}" placeholder="ex: geral@empresa.com" />
+          </div>
+          <div class="field">
+            <label>Morada</label>
+            <input class="input" id="cmpMorada" value="${safeText(db.company?.morada || "")}" placeholder="Ex: Maputo, ..." />
+          </div>
+        </div>
+
+        <button class="btn big full" type="submit">Guardar</button>
+      </form>
+    `
+  );
 }
 
 /* =======================
@@ -611,15 +830,19 @@ const pages = {
   clientes: { title: "Clientes", desc: "Cadastro de clientes" },
   produtos: { title: "Produtos", desc: "Cadastro de produtos + lucro esperado" },
   armazem: { title: "Armazém", desc: "Stock em tempo real + alertas" },
-  relatorios: { title: "Relatórios", desc: "Base de relatórios (V1)" },
+  relatorios: { title: "Relatórios", desc: "Relatórios visuais (12) + filtros" },
   fiscal: { title: "Fiscal", desc: "Página em desenvolvimento" },
   config: { title: "Config", desc: "Backup + Online (Supabase)" },
   suporte: { title: "Suporte", desc: "FAQ + reportar problemas" },
 };
 
 function go(page) {
-  document.querySelectorAll(".mitem").forEach((b) => b.classList.toggle("active", b.dataset.page === page));
-  document.querySelectorAll(".page").forEach((p) => p.classList.toggle("active", p.id === page));
+  document.querySelectorAll(".mitem").forEach((b) =>
+    b.classList.toggle("active", b.dataset.page === page)
+  );
+  document.querySelectorAll(".page").forEach((p) =>
+    p.classList.toggle("active", p.id === page)
+  );
 
   const t = document.getElementById("pageTitle");
   const d = document.getElementById("pageDesc");
@@ -656,7 +879,6 @@ function renderHome() {
   if (k4) k4.textContent = `${buysToday.length} compras`;
   if (k5) k5.textContent = MT(totalProfit);
 
-  // contas
   const elAcc = document.getElementById("accountsList");
   if (elAcc) {
     const accs = [...db.accounts].sort(byName);
@@ -666,7 +888,7 @@ function renderHome() {
             const saldo = calcAccountBalance(a.id);
             return `
               <div class="item">
-                <h4>${a.nome} <span class="badge">${a.tipo}</span></h4>
+                <h4>${safeText(a.nome)} <span class="badge">${safeText(a.tipo)}</span></h4>
                 <div class="meta">
                   <span>Saldo: <strong>${MT(saldo)}</strong></span>
                   <span>${a.ativo ? "Ativa" : "Inativa"}</span>
@@ -681,12 +903,11 @@ function renderHome() {
       : `<div class="muted">Sem contas.</div>`;
   }
 
-  // low stock
   const elLow = document.getElementById("lowStockList");
   if (elLow) {
     const lows = db.products
       .filter((p) => p.ativo)
-      .map((p) => ({ p, qty: invQty(p.id) }))
+      .map((p) => ({ p, qty: stockForProduct(p.id) }))
       .filter((x) => x.p.minStock > 0 && x.qty <= x.p.minStock)
       .sort((a, b) => a.qty - b.qty);
 
@@ -695,7 +916,7 @@ function renderHome() {
           .map(
             (x) => `
             <div class="item">
-              <h4>${x.p.nome}</h4>
+              <h4>${safeText(x.p.nome)}</h4>
               <div class="meta">
                 <span>Stock: <strong>${x.qty}</strong></span>
                 <span>Mínimo: ${x.p.minStock}</span>
@@ -706,7 +927,6 @@ function renderHome() {
       : `<div class="muted">Sem alertas de stock mínimo.</div>`;
   }
 
-  // últimas vendas
   const elLast = document.getElementById("lastSales");
   if (elLast) {
     const last = [...db.sales].slice(-5).reverse();
@@ -715,11 +935,11 @@ function renderHome() {
           .map(
             (s) => `
             <div class="item">
-              <h4>${MT(s.total)} <span class="badge">${s.data}</span></h4>
+              <h4>${MT(s.total)} <span class="badge">${safeText(s.data)}</span></h4>
               <div class="meta">
-                <span>Cliente: ${customerName(s.customerId)}</span>
-                <span>Conta: ${accountName(s.accountId)}</span>
-                <span>${s.items.length} itens</span>
+                <span>Cliente: ${safeText(customerName(s.customerId))}</span>
+                <span>Conta: ${safeText(accountName(s.accountId))}</span>
+                <span>${(s.items || []).length} itens</span>
               </div>
             </div>`
           )
@@ -729,7 +949,7 @@ function renderHome() {
 }
 
 /* =======================
-   Accounts (modal + delete)
+   Accounts
 ======================= */
 function modalAccount(id = null) {
   if (!guard("accounts.create_edit", "Apenas Admin/Gestão podem criar/editar contas.")) return;
@@ -742,7 +962,7 @@ function modalAccount(id = null) {
       <form id="accForm" class="form2" ${id ? `data-edit-id="${id}"` : ""}>
         <div class="field full">
           <label>Nome</label>
-          <input class="input" id="accName" required value="${a?.nome || ""}" placeholder="Ex: M-Pesa"/>
+          <input class="input" id="accName" required value="${safeText(a?.nome || "")}" placeholder="Ex: M-Pesa"/>
         </div>
 
         <div class="field">
@@ -772,7 +992,6 @@ function modalAccount(id = null) {
     `
   );
 }
-
 function deleteAccount(id) {
   if (!guard("accounts.delete", "Só ADMIN pode apagar contas/formas de pagamento.")) return;
   if (!confirm("Apagar esta conta?")) return;
@@ -804,7 +1023,7 @@ function renderProductsList() {
           const lucro = Number(p.precoVenda) - Number(p.precoAquisicaoRef);
           return `
             <div class="item">
-              <h4>${p.nome} <span class="badge">${p.ativo ? "Ativo" : "Inativo"}</span></h4>
+              <h4>${safeText(p.nome)} <span class="badge">${p.ativo ? "Ativo" : "Inativo"}</span></h4>
               <div class="meta">
                 <span>Venda: ${MT(p.precoVenda)}</span>
                 <span>Aquisição: ${MT(p.precoAquisicaoRef)}</span>
@@ -820,27 +1039,23 @@ function renderProductsList() {
         .join("")
     : `<div class="muted">Sem produtos.</div>`;
 }
-/* =======================
-   Produtos – Pacotes (stock base)
-======================= */
+
 function renderProductStockBaseSelect() {
   const sel = document.getElementById("prodStockBase");
   if (!sel) return;
 
   const current = sel.value || "";
-
   const items = (db.products || [])
-    .filter(p => p && p.ativo !== false)
-    .sort((a,b)=> (a.nome||"").localeCompare(b.nome||""));
+    .filter((p) => p && p.ativo !== false)
+    .sort((a, b) => (a.nome || "").localeCompare(b.nome || ""));
 
   sel.innerHTML = `
     <option value="">— Não (produto normal) —</option>
-    ${items.map(p => `<option value="${p.id}">${p.nome}</option>`).join("")}
+    ${items.map((p) => `<option value="${p.id}">${safeText(p.nome)}</option>`).join("")}
   `;
 
   sel.value = current;
 }
-
 
 /* =======================
    Clientes
@@ -855,10 +1070,10 @@ function renderCustomersList() {
         .map(
           (c) => `
           <div class="item">
-            <h4>${c.nome}</h4>
+            <h4>${safeText(c.nome)}</h4>
             <div class="meta">
-              <span>Tel: ${c.telefone || "—"}</span>
-              <span>${c.notas || ""}</span>
+              <span>Tel: ${safeText(c.telefone || "—")}</span>
+              <span>${safeText(c.notas || "")}</span>
             </div>
             <div class="actions">
               <button class="btn danger" data-del-cust="${c.id}">Apagar</button>
@@ -877,20 +1092,53 @@ function renderWarehouse() {
   if (!el) return;
 
   const items = db.products
-   .filter((p) => p.ativo) // mantém
-    .map((p) => ({ p, qty: invQty(p.id) }))
-    .sort((a, b) => a.p.nome.localeCompare(b.p.nome));
+    .filter((p) => p.ativo)
+    .map((p) => {
+      const baseId = baseIdForProduct(p.id);
+      const baseStock = baseId ? invQty(baseId) : 0;
+      const baseName = baseId ? productById(baseId)?.nome || "—" : "—";
+      const factor = factorForProduct(p.id);
+
+      const isPackage = baseId && baseId !== p.id;
+      const vendavel = stockForProduct(p.id);
+      const real = invQty(p.id);
+
+      const checkQty = isPackage ? vendavel : real;
+      const low = p.minStock > 0 && checkQty <= p.minStock;
+
+      return { p, real, isPackage, vendavel, baseName, baseStock, factor, low };
+    })
+    .sort((a, b) => (a.p.nome || "").localeCompare(b.p.nome || ""));
 
   el.innerHTML = items.length
     ? items
         .map((x) => {
-          const low = x.p.minStock > 0 && x.qty <= x.p.minStock;
+          const badge = x.low ? `<span class="badge">Baixo</span>` : "";
+          if (x.isPackage) {
+            return `
+              <div class="item">
+                <h4>${safeText(x.p.nome)} ${badge} <span class="badge">Pacote</span></h4>
+                <div class="meta">
+                  <span>Vendável: <strong>${x.vendavel}</strong> un</span>
+                  <span>Base: <strong>${safeText(x.baseName)}</strong> (${x.baseStock} em stock)</span>
+                  <span>Consome: <strong>${x.factor}</strong> por unidade</span>
+                  <span>Stock mín.: ${x.p.minStock}</span>
+                </div>
+                <div class="actions">
+                  <button class="btn ghost" data-inv-adjust="${x.p.id}">Ajustar</button>
+                </div>
+              </div>`;
+          }
+
           return `
             <div class="item">
-              <h4>${x.p.nome} ${low ? `<span class="badge">Baixo</span>` : ""}</h4>
+              <h4>${safeText(x.p.nome)} ${badge}</h4>
               <div class="meta">
-                <span>Disponível: <strong>${x.qty}</strong></span>
+                <span>Disponível: <strong>${x.real}</strong></span>
                 <span>Stock mín.: ${x.p.minStock}</span>
+              </div>
+              <div class="actions">
+                <button class="btn ghost" data-inv-adjust="${x.p.id}">Ajustar</button>
               </div>
             </div>`;
         })
@@ -914,12 +1162,12 @@ function renderBuysList() {
           const prod = productById(p.productId);
           return `
             <div class="item">
-              <h4>${MT(p.total)} <span class="badge">${p.data}</span></h4>
+              <h4>${MT(p.total)} <span class="badge">${safeText(p.data)}</span></h4>
               <div class="meta">
-                <span>Fornecedor: ${p.supplier}</span>
-                <span>Produto: ${prod?.nome || "—"}</span>
+                <span>Fornecedor: ${safeText(p.supplier)}</span>
+                <span>Produto: ${safeText(prod?.nome || "—")}</span>
                 <span>${p.qty} x ${MT(p.costUnit)}</span>
-                <span>Conta: ${accountName(p.accountId)}</span>
+                <span>Conta: ${safeText(accountName(p.accountId))}</span>
               </div>
             </div>`;
         })
@@ -933,8 +1181,7 @@ function renderBuysList() {
 function renderCatalog() {
   const q = (document.getElementById("catalogSearch")?.value || "").toLowerCase();
   const items = db.products
-   .filter((p) => p.ativo && p.kind !== "base_gb")
-
+    .filter((p) => p.ativo)
     .filter((p) => p.nome.toLowerCase().includes(q))
     .sort(byName);
 
@@ -944,14 +1191,14 @@ function renderCatalog() {
   el.innerHTML = items.length
     ? items
         .map((p) => {
-         const qty = stockForProduct(p.id);
+          const qty = stockForProduct(p.id);
           const disabled = qty <= 0;
           const img = p.img ? `<img src="${p.img}" alt="">` : "";
           return `
             <div class="pcard">
               <div class="pimg">${img}</div>
               <div class="pinfo">
-                <div class="pname">${p.nome}</div>
+                <div class="pname">${safeText(p.nome)}</div>
                 <div class="pmuted">
                   <span>Preço: <strong>${MT(p.precoVenda)}</strong></span>
                   <span>Stock: <strong>${qty}</strong></span>
@@ -970,31 +1217,17 @@ function addToCart(productId) {
   const p = productById(productId);
   if (!p) return;
 
-  // stock base necessário por 1 unidade do produto
-  const needOne = consumptionQty(productId);
-  if (stockForProduct(productId) < needOne) {
-    return alert("Sem stock (base).");
-  }
+  if (stockForProduct(productId) < 1) return alert("Sem stock (base).");
 
-  // ✅ agora sim: procurar item no carrinho
   const found = cart.find((i) => i.productId === productId);
-
   if (found) {
-    // se já existe no carrinho, validar se ainda há stock base para +1
-    const needTotal = (found.qty + 1) * consumptionQty(productId);
-    if (needTotal > stockForProduct(productId)) {
-      return alert("Stock base insuficiente.");
-    }
+    if (found.qty + 1 > stockForProduct(productId)) return alert("Stock insuficiente (base).");
     found.qty += 1;
   } else {
-    // novo item
     cart.push({ productId, qty: 1 });
   }
-
   renderCart();
 }
-
-
 
 function renderCart() {
   const el = document.getElementById("cartList");
@@ -1009,7 +1242,7 @@ function renderCart() {
 
   const rows = cart.map((i) => {
     const p = productById(i.productId);
-    const stock = invQty(i.productId);
+    const stock = stockForProduct(i.productId);
     const total = i.qty * Number(p?.precoVenda || 0);
     return { i, p, stock, total };
   });
@@ -1022,7 +1255,7 @@ function renderCart() {
     .map(
       (r) => `
         <div class="item">
-          <h4>${r.p?.nome || "—"}</h4>
+          <h4>${safeText(r.p?.nome || "—")}</h4>
           <div class="meta">
             <span>${r.i.qty} x ${MT(r.p?.precoVenda)}</span>
             <span>Total: <strong>${MT(r.total)}</strong></span>
@@ -1043,14 +1276,61 @@ function changeQty(productId, delta) {
   if (!item) return;
   const newQty = item.qty + delta;
   if (newQty <= 0) return removeFromCart(productId);
-  if (newQty > invQty(productId)) return alert("Stock insuficiente.");
+
+  if (newQty > stockForProduct(productId)) return alert("Stock insuficiente (base).");
+
   item.qty = newQty;
   renderCart();
 }
-
 function removeFromCart(productId) {
   cart = cart.filter((x) => x.productId !== productId);
   renderCart();
+}
+function canCancelSales() {
+  const r = role();
+  return r === "admin" || r === "manager";
+}
+function cancelSale(saleId) {
+  if (!canCancelSales()) return alert("Sem permissão para cancelar vendas.");
+
+  const s = db.sales.find((x) => x.id === saleId);
+  if (!s) return alert("Venda não encontrada.");
+  if (s.status === "CANCELLED") return alert("Esta venda já foi cancelada.");
+
+  const reason = prompt("Motivo do cancelamento (obrigatório):") || "";
+  if (!reason.trim()) return alert("Cancelamento precisa de motivo.");
+
+  try {
+    (s.items || []).forEach((it) => {
+      const baseId = baseIdForProduct(it.productId);
+      const factor = factorForProduct(it.productId);
+      const giveBack = Number(it.qty || 0) * factor;
+      setInv(baseId, invQty(baseId) + giveBack);
+    });
+  } catch (err) {
+    console.error(err);
+    return alert("Erro ao devolver stock.");
+  }
+
+  addLedger({
+    date: todayISO(),
+    type: "out",
+    accountId: s.accountId,
+    amount: Number(s.total || 0),
+    refType: "sale_cancel",
+    refId: s.id,
+    note: `Cancelamento venda (${customerName(s.customerId)}): ${reason.trim()}`,
+  });
+
+  const u = currentUser();
+  s.status = "CANCELLED";
+  s.cancelledAt = Date.now();
+  s.cancelledBy = u ? u.id : null;
+  s.cancelReason = reason.trim();
+
+  touch();
+  renderAll();
+  alert("Venda cancelada e revertida com sucesso.");
 }
 
 function finalizeSale() {
@@ -1063,20 +1343,19 @@ function finalizeSale() {
 
   if (!customerId) return alert("Selecione o cliente.");
   if (!accountId) return alert("Selecione a conta.");
-for (const i of cart) {
-  const baseId = stockBaseIdForProduct(i.productId);
-  const need = i.qty * consumptionQty(i.productId);
-  if (need > invQty(baseId)) {
-    const baseName = productById(baseId)?.nome || "Stock base";
-    return alert(`Stock insuficiente em: ${baseName}`);
-  }
-}
 
+  for (const i of cart) {
+    const baseId = baseIdForProduct(i.productId);
+    const need = i.qty * factorForProduct(i.productId);
+    if (need > invQty(baseId)) {
+      const baseName = productById(baseId)?.nome || "Stock base";
+      return alert(`Stock insuficiente em: ${baseName}`);
+    }
+  }
 
   const items = cart.map((i) => {
     const p = productById(i.productId);
-const costUnit = costUnitFor(i.productId);
-
+    const costUnit = costUnitFor(i.productId);
     return { productId: i.productId, qty: i.qty, priceUnit: Number(p?.precoVenda || 0), costUnit };
   });
 
@@ -1084,16 +1363,38 @@ const costUnit = costUnitFor(i.productId);
   const totalCost = items.reduce((s, it) => s + it.qty * it.costUnit, 0);
   const profit = total - totalCost;
 
-  const sale = { id: uid(), data: date, customerId, accountId, items, total, totalCost, profit };
+  const sale = {
+    id: uid(),
+    data: date,
+    customerId,
+    accountId,
+    items,
+    total,
+    totalCost,
+    profit,
+    status: "OK",
+    cancelledAt: null,
+    cancelledBy: null,
+    cancelReason: "",
+  };
+
   db.sales.push(sale);
 
-try{
-  items.forEach((it) => consumeStockForSaleItem(it.productId, it.qty));
-}catch(err){
-  return alert(err?.message || "Erro ao baixar stock.");
-}
+  try {
+    items.forEach((it) => consumeStockForSaleItem(it.productId, it.qty));
+  } catch (err) {
+    return alert(err?.message || "Erro ao baixar stock.");
+  }
 
-  addLedger({ date, type: "in", accountId, amount: total, refType: "sale", refId: sale.id, note: `Venda ${customerName(customerId)}` });
+  addLedger({
+    date,
+    type: "in",
+    accountId,
+    amount: total,
+    refType: "sale",
+    refId: sale.id,
+    note: `Venda ${customerName(customerId)}`,
+  });
 
   cart = [];
   touch();
@@ -1110,18 +1411,36 @@ function renderSalesList() {
 
   el.innerHTML = items.length
     ? items
-        .map(
-          (s) => `
-          <div class="item">
-            <h4>${MT(s.total)} <span class="badge">${s.data}</span></h4>
-            <div class="meta">
-              <span>Cliente: ${customerName(s.customerId)}</span>
-              <span>Conta: ${accountName(s.accountId)}</span>
-              <span>Lucro (estim.): <strong>${MT(s.profit)}</strong></span>
-              <span>${s.items.length} itens</span>
-            </div>
-          </div>`
-        )
+        .map((s) => {
+          const cancelled = s.status === "CANCELLED";
+          return `
+            <div class="item">
+              <h4>
+                ${MT(s.total)} 
+                <span class="badge">${safeText(s.data)}</span>
+                ${
+                  cancelled
+                    ? `<span class="badge" style="border-color: rgba(251,113,133,.55)">CANCELADA</span>`
+                    : ""
+                }
+              </h4>
+              <div class="meta">
+                <span>Cliente: ${safeText(customerName(s.customerId))}</span>
+                <span>Conta: ${safeText(accountName(s.accountId))}</span>
+                <span>Lucro (estim.): <strong>${MT(s.profit)}</strong></span>
+                <span>${(s.items || []).length} itens</span>
+                ${cancelled ? `<span>Motivo: ${safeText(s.cancelReason || "—")}</span>` : ""}
+              </div>
+
+              <div class="actions">
+                ${
+                  !cancelled && canCancelSales()
+                    ? `<button class="btn danger" data-cancel-sale="${s.id}">Cancelar</button>`
+                    : ``
+                }
+              </div>
+            </div>`;
+        })
         .join("")
     : `<div class="muted">Sem vendas.</div>`;
 }
@@ -1133,84 +1452,22 @@ function renderSelects() {
   const accActive = db.accounts.filter((a) => a.ativo).sort(byName);
   const custs = [...db.customers].sort(byName);
   const prods = db.products.filter((p) => p.ativo).sort(byName);
-function renderProductStockBaseSelect() {
-  const sel = document.getElementById("prodStockBase");
-  if (!sel) return;
-
-  const current = sel.value || "";
-  const items = db.products.filter(p => p.ativo).sort(byName);
-
-  sel.innerHTML = `
-    <option value="">— Não (produto normal) —</option>
-    ${items.map(p => `<option value="${p.id}">${p.nome}</option>`).join("")}
-  `;
-
-  // tenta manter seleção atual
-  sel.value = current;
-}
 
   const saleAcc = document.getElementById("saleAccount");
-  if (saleAcc) saleAcc.innerHTML = accActive.map((a) => `<option value="${a.id}">${a.nome}</option>`).join("");
+  if (saleAcc) saleAcc.innerHTML = accActive.map((a) => `<option value="${a.id}">${safeText(a.nome)}</option>`).join("");
 
   const buyAcc = document.getElementById("buyAccount");
-  if (buyAcc) buyAcc.innerHTML = accActive.map((a) => `<option value="${a.id}">${a.nome}</option>`).join("");
+  if (buyAcc) buyAcc.innerHTML = accActive.map((a) => `<option value="${a.id}">${safeText(a.nome)}</option>`).join("");
 
   const saleCust = document.getElementById("saleCustomer");
-  if (saleCust) saleCust.innerHTML = custs.map((c) => `<option value="${c.id}">${c.nome}</option>`).join("");
+  if (saleCust) saleCust.innerHTML = custs.map((c) => `<option value="${c.id}">${safeText(c.nome)}</option>`).join("");
 
   const buyProd = document.getElementById("buyProduct");
-  if (buyProd) buyProd.innerHTML = prods.map((p) => `<option value="${p.id}">${p.nome}</option>`).join("");
+  if (buyProd) buyProd.innerHTML = prods.map((p) => `<option value="${p.id}">${safeText(p.nome)}</option>`).join("");
 }
 
 /* =======================
-   Reports (base)
-======================= */
-function renderReportsBase() {
-  const elQuick = document.getElementById("reportQuick");
-  const elStock = document.getElementById("reportStock");
-  if (!elQuick || !elStock) return;
-
-  const d = todayISO();
-  const sales = db.sales.filter((s) => s.data === d);
-  const buys = db.purchases.filter((p) => p.data === d);
-  const totalSales = sales.reduce((s, x) => s + x.total, 0);
-  const totalBuys = buys.reduce((s, x) => s + x.total, 0);
-  const profit = sales.reduce((s, x) => s + x.profit, 0);
-
-  elQuick.innerHTML = `
-    <div class="item">
-      <h4>Hoje (${d})</h4>
-      <div class="meta">
-        <span>Vendas: <strong>${MT(totalSales)}</strong></span>
-        <span>Compras: <strong>${MT(totalBuys)}</strong></span>
-        <span>Lucro (estim.): <strong>${MT(profit)}</strong></span>
-      </div>
-    </div>
-  `;
-
-  const lows = db.products
-    .filter((p) => p.ativo)
-    .map((p) => ({ p, qty: invQty(p.id) }))
-    .filter((x) => x.p.minStock > 0 && x.qty <= x.p.minStock);
-
-  elStock.innerHTML = lows.length
-    ? lows
-        .map(
-          (x) => `
-          <div class="item">
-            <h4>${x.p.nome}</h4>
-            <div class="meta">
-              <span>Stock: <strong>${x.qty}</strong></span>
-              <span>Mínimo: ${x.p.minStock}</span>
-            </div>
-          </div>`
-        )
-        .join("")
-    : `<div class="muted">Sem stock baixo agora.</div>`;
-}
-
-/* =======================
-   User badge (top)
+   Users badge
 ======================= */
 function renderUserBadge() {
   const el = document.getElementById("userBadge");
@@ -1220,12 +1477,8 @@ function renderUserBadge() {
 }
 
 /* =======================
-   CONFIG -> UTILIZADORES (Admin)
+   CONFIG -> Utilizadores
 ======================= */
-function safeText(s) {
-  return String(s ?? "").replace(/[<>&"]/g, (c) => ({ "<": "&lt;", ">": "&gt;", "&": "&amp;", '"': "&quot;" }[c]));
-}
-
 function renderUsersSection() {
   ensureAuthModel();
   const card = document.getElementById("usersCard");
@@ -1257,9 +1510,8 @@ function renderUsersSection() {
                 ${isMe ? `<span class="badge">Você</span>` : ``}
               </div>
               <div class="actions">
-                <button class="btn ghost" data-user-edit="${u.id}">Editar</button>
-                <button class="btn ghost" data-user-pin="${u.id}">Reset PIN (Admin)</button>
-                <button class="btn ghost" data-user-qa="${u.id}">Pergunta/PIN</button>
+                <button class="btn ghost" data-user-pin="${u.id}">Reset PIN</button>
+                <button class="btn ghost" data-user-qa="${u.id}">Pergunta</button>
                 <button class="btn ${u.ativo === false ? "ghost" : "danger"}" data-user-toggle="${u.id}">
                   ${u.ativo === false ? "Ativar" : "Desativar"}
                 </button>
@@ -1270,100 +1522,649 @@ function renderUsersSection() {
     : `<div class="muted">Sem utilizadores.</div>`;
 }
 
-function modalUser(id = null) {
-  if (!isAdmin()) return alert("Só ADMIN pode gerir utilizadores.");
+/* =======================
+   RELATÓRIOS VISUAIS (12) - UI ÚNICA
+   (Mantive a tua implementação igual, apenas sem mexer aqui)
+======================= */
+function escapeHtml(s) {
+  return String(s ?? "").replace(/[<>&"]/g, (c) => ({ "<": "&lt;", ">": "&gt;", "&": "&amp;", '"': "&quot;" }[c]));
+}
+function isoToTime(iso) {
+  return new Date(iso + "T00:00:00").getTime();
+}
+function inRange(dateISO, startISO, endISO) {
+  const t = isoToTime(dateISO);
+  return t >= isoToTime(startISO) && t <= isoToTime(endISO);
+}
+function daysBetween(startISO, endISO) {
+  const out = [];
+  let t = isoToTime(startISO);
+  const end = isoToTime(endISO);
+  while (t <= end) {
+    out.push(new Date(t).toISOString().slice(0, 10));
+    t += 86400000;
+  }
+  return out;
+}
+function svgBarChart({ labels, values, height = 180 }) {
+  const max = Math.max(1, ...values.map((v) => Number(v || 0)));
+  const w = 620;
+  const padL = 34, padR = 10, padT = 10, padB = 34;
+  const innerW = w - padL - padR;
+  const innerH = height - padT - padB;
+  const n = labels.length || 1;
+  const barW = innerW / n;
+  const gap = Math.min(8, barW * 0.18);
+  const bw = Math.max(6, barW - gap);
 
-  const first = db.users.length === 0;
-  const u = id ? db.users.find((x) => x.id === id) : null;
+  const bars = labels
+    .map((lab, i) => {
+      const v = Number(values[i] || 0);
+      const h = (v / max) * innerH;
+      const x = padL + i * barW + gap / 2;
+      const y = padT + (innerH - h);
+      return `
+      <rect x="${x}" y="${y}" width="${bw}" height="${h}" rx="6" ry="6" fill="rgba(94,234,212,.55)"></rect>
+      <text x="${x + bw / 2}" y="${height - 12}" text-anchor="middle" font-size="11" fill="rgba(169,182,214,.95)">${escapeHtml(String(lab))}</text>
+    `;
+    })
+    .join("");
 
-  openModal(
-    id ? "Editar utilizador" : "Novo utilizador",
-    `
-      <form id="userForm" class="form2" ${id ? `data-edit-id="${id}"` : ""}>
-        <div class="field full">
-          <label>Nome</label>
-          <input class="input" id="uName" required value="${safeText(u?.nome || "")}" placeholder="Ex: Caixa 1"/>
-        </div>
+  const axis = `<line x1="${padL}" y1="${padT + innerH}" x2="${w - padR}" y2="${padT + innerH}" stroke="rgba(255,255,255,.12)"/>`;
 
-        <div class="field">
-          <label>Nível</label>
-          <select class="input" id="uRole" ${first ? "disabled" : ""}>
-            <option value="admin" ${u?.role === "admin" ? "selected" : ""}>Admin</option>
-            <option value="manager" ${u?.role === "manager" ? "selected" : ""}>Gestão</option>
-            <option value="staff" ${u?.role === "staff" ? "selected" : ""}>Caixa</option>
-          </select>
-          ${first ? `<small class="muted">Primeiro utilizador tem de ser Admin.</small>` : ``}
-        </div>
+  return `
+    <svg viewBox="0 0 ${w} ${height}" width="100%" height="${height}">
+      ${axis}
+      ${bars}
+    </svg>
+  `;
+}
+function svgLineChart({ labels, values, height = 180 }) {
+  const max = Math.max(1, ...values.map((v) => Number(v || 0)));
+  const w = 620;
+  const padL = 34, padR = 10, padT = 10, padB = 34;
+  const innerW = w - padL - padR;
+  const innerH = height - padT - padB;
+  const n = labels.length || 1;
+  const step = innerW / Math.max(1, n - 1);
 
-        <div class="field">
-          <label>${id ? "Novo PIN (deixe vazio para manter)" : "PIN (4–8 dígitos)"}</label>
-          <input class="input" id="uPin" type="password" inputmode="numeric" placeholder="ex: 1234"/>
-        </div>
+  const pts = values.map((v, i) => {
+    const vv = Number(v || 0);
+    const x = padL + i * step;
+    const y = padT + (innerH - (vv / max) * innerH);
+    return { x, y };
+  });
 
-        <button class="btn big full" type="submit">${id ? "Guardar" : "Criar"}</button>
-      </form>
-    `
-  );
+  const d = pts.map((p, i) => (i === 0 ? `M ${p.x} ${p.y}` : `L ${p.x} ${p.y}`)).join(" ");
+  const dots = pts.map((p) => `<circle cx="${p.x}" cy="${p.y}" r="4" fill="rgba(94,234,212,.75)"></circle>`).join("");
+
+  const xLabels = labels
+    .map((lab, i) => {
+      if (n > 12 && i % Math.ceil(n / 12) !== 0) return "";
+      const x = padL + i * step;
+      return `<text x="${x}" y="${height - 12}" text-anchor="middle" font-size="11" fill="rgba(169,182,214,.95)">${escapeHtml(String(lab))}</text>`;
+    })
+    .join("");
+
+  const axis = `<line x1="${padL}" y1="${padT + innerH}" x2="${w - padR}" y2="${padT + innerH}" stroke="rgba(255,255,255,.12)"/>`;
+
+  return `
+    <svg viewBox="0 0 ${w} ${height}" width="100%" height="${height}">
+      ${axis}
+      <path d="${d}" fill="none" stroke="rgba(94,234,212,.85)" stroke-width="3" stroke-linecap="round"/>
+      ${dots}
+      ${xLabels}
+    </svg>
+  `;
+}
+function getReportRange() {
+  const preset = document.getElementById("repPreset")?.value || "today";
+  const today = todayISO();
+  const toISO = (d) => new Date(d).toISOString().slice(0, 10);
+
+  function firstDayOfMonth(dateISO) {
+    const d = new Date(dateISO + "T00:00:00");
+    d.setDate(1);
+    return toISO(d);
+  }
+  function lastDayOfMonth(dateISO) {
+    const d = new Date(dateISO + "T00:00:00");
+    d.setMonth(d.getMonth() + 1);
+    d.setDate(0);
+    return toISO(d);
+  }
+  function addDays(dateISO, n) {
+    const d = new Date(dateISO + "T00:00:00");
+    d.setDate(d.getDate() + n);
+    return toISO(d);
+  }
+
+  if (preset === "custom") {
+    const start = document.getElementById("repStart")?.value || today;
+    const end = document.getElementById("repEnd")?.value || today;
+    return { start, end, preset };
+  }
+  if (preset === "today") return { start: today, end: today, preset };
+  if (preset === "last7") return { start: addDays(today, -6), end: today, preset };
+  if (preset === "last30") return { start: addDays(today, -29), end: today, preset };
+  if (preset === "thisMonth") return { start: firstDayOfMonth(today), end: lastDayOfMonth(today), preset };
+  if (preset === "lastMonth") {
+    const d = new Date(today + "T00:00:00");
+    d.setMonth(d.getMonth() - 1);
+    const ref = toISO(d);
+    return { start: firstDayOfMonth(ref), end: lastDayOfMonth(ref), preset };
+  }
+  return { start: today, end: today, preset };
+}
+function salesInRange(start, end) {
+  return (db.sales || []).filter((s) => s?.data && inRange(s.data, start, end));
+}
+function buysInRange(start, end) {
+  return (db.purchases || []).filter((p) => p?.data && inRange(p.data, start, end));
+}
+function sumBy(arr, keyFn, valFn) {
+  const m = new Map();
+  arr.forEach((x) => {
+    const k = keyFn(x);
+    const v = Number(valFn(x) || 0);
+    m.set(k, (m.get(k) || 0) + v);
+  });
+  return m;
+}
+function topNFromMap(map, n = 10) {
+  return [...map.entries()].sort((a, b) => (b[1] || 0) - (a[1] || 0)).slice(0, n);
+}
+function vendableStockForPackage(p) {
+  const baseId = p?.stockBaseId;
+  const factor = Number(p?.stockFactor || 1);
+  if (baseId && factor > 0) {
+    const baseQty = invQty(baseId);
+    return Math.floor(baseQty / factor);
+  }
+  return stockForProduct(p?.id);
 }
 
-function modalSetQA(userId) {
-  if (!isAdmin()) return alert("Só ADMIN pode definir pergunta/recuperação.");
-  const u = db.users.find((x) => x.id === userId);
-  if (!u) return;
+const REPORTS = [
+  { id: "r1", title: "Resumo do período" },
+  { id: "r2", title: "Vendas por dia" },
+  { id: "r3", title: "Lucro por dia" },
+  { id: "r4", title: "Top 10 • Vendas por produto" },
+  { id: "r5", title: "Top 10 • Lucro por produto" },
+  { id: "r6", title: "Top 10 • Vendas por cliente" },
+  { id: "r7", title: "Vendas por conta" },
+  { id: "r8", title: "Top 10 • Compras por fornecedor" },
+  { id: "r9", title: "Top 10 • Compras por produto" },
+  { id: "r10", title: "Armazém • Real + Vendável (pacotes)" },
+  { id: "r11", title: "Alertas • Stock mínimo" },
+  { id: "r12", title: "Ticket médio + tendência" },
+];
+let reportActiveId = "r1";
 
-  openModal(
-    "Definir recuperação de PIN",
-    `
-      <form id="qaForm" class="form2" data-qa-id="${userId}">
-        <div class="field full">
-          <label>Utilizador</label>
-          <input class="input" value="${safeText(u.nome)}" disabled />
+function ensureReportsUI() {
+  const page = document.getElementById("relatorios");
+  if (!page) return;
+  if (page.querySelector("#reportsHub")) return;
+
+  const d = todayISO();
+  const wrap = document.createElement("div");
+  wrap.id = "reportsHub";
+  wrap.innerHTML = `
+    <div class="card">
+      <div class="row between gap">
+        <div class="row gap" style="flex-wrap:wrap">
+          <div style="min-width:180px">
+            <div class="label">Período</div>
+            <select class="input" id="repPreset">
+              <option value="today">Hoje</option>
+              <option value="last7">Últimos 7 dias</option>
+              <option value="last30">Últimos 30 dias</option>
+              <option value="thisMonth">Este mês</option>
+              <option value="lastMonth">Mês passado</option>
+              <option value="custom">Personalizado</option>
+            </select>
+          </div>
+
+          <div id="repCustomDates" class="row gap" style="display:none">
+            <div style="min-width:150px">
+              <div class="label">Início</div>
+              <input class="input" type="date" id="repStart" value="${d}">
+            </div>
+            <div style="min-width:150px">
+              <div class="label">Fim</div>
+              <input class="input" type="date" id="repEnd" value="${d}">
+            </div>
+          </div>
+
+          <div style="align-self:flex-end">
+            <button class="btn" id="repApply" type="button">Aplicar</button>
+          </div>
         </div>
 
-        <div class="field full">
-          <label>Pergunta de segurança</label>
-          <input class="input" id="qaQuestion" required value="${safeText(u.securityQuestion || "")}" placeholder="Ex: Qual é o nome da sua mãe?"/>
-        </div>
+        <div class="muted" id="repHint">Relatórios visuais (12)</div>
+      </div>
+    </div>
 
-        <div class="field full">
-          <label>Resposta (não guarda em texto; só hash)</label>
-          <input class="input" id="qaAnswer" required placeholder="Digite a resposta..." />
-        </div>
+    <div class="grid two">
+      <div class="card inner">
+        <div class="reports-menu" id="repMenu"></div>
+      </div>
 
-        <button class="btn big full" type="submit">Guardar</button>
-      </form>
-    `
-  );
+      <div class="card inner">
+        <div class="row between gap" style="margin-bottom:8px">
+          <h3 id="repTitle" style="margin:0;font-size:16px">—</h3>
+          <button class="btn ghost" id="repExport" type="button">Exportar (JSON)</button>
+        </div>
+        <div id="repBody"></div>
+      </div>
+    </div>
+  `;
+  page.prepend(wrap);
+
+  function toggleCustomDates() {
+    const preset = wrap.querySelector("#repPreset")?.value || "today";
+    const box = wrap.querySelector("#repCustomDates");
+    if (!box) return;
+    box.style.display = preset === "custom" ? "flex" : "none";
+  }
+
+  wrap.querySelector("#repPreset")?.addEventListener("change", () => {
+    toggleCustomDates();
+    renderReportsVisual();
+  });
+
+  wrap.querySelector("#repApply")?.addEventListener("click", () => renderReportsVisual());
+  wrap.querySelector("#repExport")?.addEventListener("click", () => exportReportJSON());
+  wrap.querySelector("#repStart")?.addEventListener("change", () => renderReportsVisual());
+  wrap.querySelector("#repEnd")?.addEventListener("change", () => renderReportsVisual());
+
+  wrap.querySelector("#repMenu")?.addEventListener("click", (e) => {
+    const btn = e.target.closest("[data-rep]");
+    if (!btn) return;
+    reportActiveId = btn.dataset.rep;
+    renderReportsVisual();
+  });
+
+  toggleCustomDates();
 }
 
-function modalChangePinForced() {
-  const u = currentUser();
-  if (!u) return;
+function exportReportJSON() {
+  const { start, end } = getReportRange();
+  const payload = buildReportPayload(reportActiveId, start, end);
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = `relatorio-${reportActiveId}-${start}_a_${end}.json`;
+  a.click();
+}
 
-  openModal(
-    "Alterar PIN (obrigatório)",
-    `
-      <form id="forcePinForm" class="form2">
-        <div class="field full">
-          <label>Seu nome</label>
-          <input class="input" value="${safeText(u.nome)}" disabled />
+function renderReportsMenu() {
+  const menu = document.getElementById("repMenu");
+  if (!menu) return;
+
+  menu.innerHTML = REPORTS.map(
+    (r) => `
+    <button class="btn ghost repbtn ${r.id === reportActiveId ? "active" : ""}" data-rep="${r.id}">
+      ${escapeHtml(r.title)}
+    </button>
+  `
+  ).join("");
+}
+
+function buildReportPayload(repId, start, end) {
+  const sales = salesInRange(start, end);
+  const buys = buysInRange(start, end);
+  return { repId, start, end, sales, buys, dbMeta: db.meta };
+}
+
+function renderReportsVisual() {
+  ensureReportsUI();
+  renderReportsMenu();
+
+  const { start, end } = getReportRange();
+  const titleEl = document.getElementById("repTitle");
+  const body = document.getElementById("repBody");
+  if (!body) return;
+
+  const rep = REPORTS.find((r) => r.id === reportActiveId) || REPORTS[0];
+  if (titleEl) titleEl.textContent = rep.title;
+
+  const sales = salesInRange(start, end);
+  const buys = buysInRange(start, end);
+  const days = daysBetween(start, end);
+
+  const totalSales = sales.reduce((s, x) => s + Number(x.total || 0), 0);
+  const totalBuys = buys.reduce((s, x) => s + Number(x.total || 0), 0);
+  const totalProfit = sales.reduce((s, x) => s + Number(x.profit || 0), 0);
+  const saleCount = sales.length;
+
+  const salesByDay = days.map((d) => sales.filter((s) => s.data === d).reduce((t, s) => t + Number(s.total || 0), 0));
+  const profitByDay = days.map((d) => sales.filter((s) => s.data === d).reduce((t, s) => t + Number(s.profit || 0), 0));
+
+  const prodSalesMap = new Map();
+  const prodProfitMap = new Map();
+  sales.forEach((s) => {
+    (s.items || []).forEach((it) => {
+      const pid = it.productId;
+      const v = Number(it.qty || 0) * Number(it.priceUnit || 0);
+      const c = Number(it.qty || 0) * Number(it.costUnit || 0);
+      prodSalesMap.set(pid, (prodSalesMap.get(pid) || 0) + v);
+      prodProfitMap.set(pid, (prodProfitMap.get(pid) || 0) + (v - c));
+    });
+  });
+
+  const custMap = sumBy(sales, (s) => s.customerId || "—", (s) => s.total);
+  const accMap = sumBy(sales, (s) => s.accountId || "—", (s) => s.total);
+  const supMap = sumBy(buys, (b) => b.supplier || "—", (b) => b.total);
+  const buyProdMap = sumBy(buys, (b) => b.productId || "—", (b) => b.total);
+
+  if (reportActiveId === "r1") {
+    body.innerHTML = `
+      <div class="grid kpis">
+        <div class="card">
+          <div class="label">Vendas</div>
+          <div class="kpi">${MT(totalSales)}</div>
+          <div class="muted">${saleCount} vendas</div>
         </div>
-
-        <div class="field full">
-          <label>PIN atual</label>
-          <input class="input" id="forceOldPin" type="password" inputmode="numeric" required />
+        <div class="card">
+          <div class="label">Compras</div>
+          <div class="kpi">${MT(totalBuys)}</div>
+          <div class="muted">no período</div>
         </div>
-
-        <div class="field full">
-          <label>Novo PIN (4–8 dígitos)</label>
-          <input class="input" id="forceNewPin" type="password" inputmode="numeric" required />
+        <div class="card">
+          <div class="label">Lucro (estim.)</div>
+          <div class="kpi">${MT(totalProfit)}</div>
+          <div class="muted">no período</div>
         </div>
+      </div>
+      <div class="card">
+        <div class="label">Tendência (Vendas/dia)</div>
+        ${svgLineChart({ labels: days.map((d) => d.slice(5)), values: salesByDay })}
+      </div>
+    `;
+    return;
+  }
 
-        <button class="btn big full" type="submit">Alterar</button>
-      </form>
-      <p class="muted" style="margin-top:8px">Como o Admin fez reset, você precisa definir um novo PIN.</p>
-    `
-  );
+  if (reportActiveId === "r2") {
+    body.innerHTML = `
+      <div class="card">
+        <div class="label">Vendas por dia</div>
+        ${svgBarChart({ labels: days.map((d) => d.slice(5)), values: salesByDay })}
+      </div>
+    `;
+    return;
+  }
+
+  if (reportActiveId === "r3") {
+    body.innerHTML = `
+      <div class="card">
+        <div class="label">Lucro por dia (estim.)</div>
+        ${svgLineChart({ labels: days.map((d) => d.slice(5)), values: profitByDay })}
+      </div>
+    `;
+    return;
+  }
+
+  if (reportActiveId === "r4") {
+    const top = topNFromMap(prodSalesMap, 10).map(([pid, val]) => ({ name: productById(pid)?.nome || "—", val }));
+    body.innerHTML = `
+      <div class="card">
+        <div class="label">Top 10 • Vendas por produto</div>
+        ${svgBarChart({ labels: top.map((x) => x.name.slice(0, 10)), values: top.map((x) => x.val) })}
+        <div class="list">
+          ${
+            top
+              .map(
+                (x) => `
+            <div class="item">
+              <h4>${escapeHtml(x.name)}</h4>
+              <div class="meta"><span>Vendas: <strong>${MT(x.val)}</strong></span></div>
+            </div>
+          `
+              )
+              .join("") || `<div class="muted">Sem dados.</div>`
+          }
+        </div>
+      </div>
+    `;
+    return;
+  }
+
+  if (reportActiveId === "r5") {
+    const top = topNFromMap(prodProfitMap, 10).map(([pid, val]) => ({ name: productById(pid)?.nome || "—", val }));
+    body.innerHTML = `
+      <div class="card">
+        <div class="label">Top 10 • Lucro por produto</div>
+        ${svgBarChart({ labels: top.map((x) => x.name.slice(0, 10)), values: top.map((x) => x.val) })}
+        <div class="list">
+          ${
+            top
+              .map(
+                (x) => `
+            <div class="item">
+              <h4>${escapeHtml(x.name)}</h4>
+              <div class="meta"><span>Lucro: <strong>${MT(x.val)}</strong></span></div>
+            </div>
+          `
+              )
+              .join("") || `<div class="muted">Sem dados.</div>`
+          }
+        </div>
+      </div>
+    `;
+    return;
+  }
+
+  if (reportActiveId === "r6") {
+    const top = topNFromMap(custMap, 10).map(([cid, val]) => ({ name: customerName(cid), val }));
+    body.innerHTML = `
+      <div class="card">
+        <div class="label">Top 10 • Vendas por cliente</div>
+        ${svgBarChart({ labels: top.map((x) => x.name.slice(0, 10)), values: top.map((x) => x.val) })}
+        <div class="list">
+          ${
+            top
+              .map(
+                (x) => `
+            <div class="item">
+              <h4>${escapeHtml(x.name)}</h4>
+              <div class="meta"><span>Total: <strong>${MT(x.val)}</strong></span></div>
+            </div>
+          `
+              )
+              .join("") || `<div class="muted">Sem dados.</div>`
+          }
+        </div>
+      </div>
+    `;
+    return;
+  }
+
+  if (reportActiveId === "r7") {
+    const top = topNFromMap(accMap, 10).map(([aid, val]) => ({ name: accountName(aid), val }));
+    body.innerHTML = `
+      <div class="card">
+        <div class="label">Vendas por conta</div>
+        ${svgBarChart({ labels: top.map((x) => x.name.slice(0, 10)), values: top.map((x) => x.val) })}
+        <div class="list">
+          ${
+            top
+              .map(
+                (x) => `
+            <div class="item">
+              <h4>${escapeHtml(x.name)}</h4>
+              <div class="meta"><span>Total: <strong>${MT(x.val)}</strong></span></div>
+            </div>
+          `
+              )
+              .join("") || `<div class="muted">Sem dados.</div>`
+          }
+        </div>
+      </div>
+    `;
+    return;
+  }
+
+  if (reportActiveId === "r8") {
+    const top = topNFromMap(supMap, 10).map(([name, val]) => ({ name, val }));
+    body.innerHTML = `
+      <div class="card">
+        <div class="label">Top 10 • Compras por fornecedor</div>
+        ${svgBarChart({ labels: top.map((x) => x.name.slice(0, 10)), values: top.map((x) => x.val) })}
+        <div class="list">
+          ${
+            top
+              .map(
+                (x) => `
+            <div class="item">
+              <h4>${escapeHtml(x.name)}</h4>
+              <div class="meta"><span>Total: <strong>${MT(x.val)}</strong></span></div>
+            </div>
+          `
+              )
+              .join("") || `<div class="muted">Sem dados.</div>`
+          }
+        </div>
+      </div>
+    `;
+    return;
+  }
+
+  if (reportActiveId === "r9") {
+    const top = topNFromMap(buyProdMap, 10).map(([pid, val]) => ({ name: productById(pid)?.nome || "—", val }));
+    body.innerHTML = `
+      <div class="card">
+        <div class="label">Top 10 • Compras por produto</div>
+        ${svgBarChart({ labels: top.map((x) => x.name.slice(0, 10)), values: top.map((x) => x.val) })}
+        <div class="list">
+          ${
+            top
+              .map(
+                (x) => `
+            <div class="item">
+              <h4>${escapeHtml(x.name)}</h4>
+              <div class="meta"><span>Total: <strong>${MT(x.val)}</strong></span></div>
+            </div>
+          `
+              )
+              .join("") || `<div class="muted">Sem dados.</div>`
+          }
+        </div>
+      </div>
+    `;
+    return;
+  }
+
+  if (reportActiveId === "r10") {
+    const prods = (db.products || []).filter((p) => p?.ativo);
+    const rows = prods
+      .map((p) => {
+        const real = invQty(p.id);
+        const isPack = !!p.stockBaseId;
+        const vend = isPack ? vendableStockForPackage(p) : null;
+        const baseName = isPack ? productById(p.stockBaseId)?.nome || "—" : "";
+        return { p, real, vend, baseName, isPack };
+      })
+      .sort((a, b) => (a.p.nome || "").localeCompare(b.p.nome || ""));
+
+    body.innerHTML = `
+      <div class="card">
+        <div class="label">Armazém: stock real + vendável</div>
+        <div class="list">
+          ${rows
+            .map(
+              (r) => `
+            <div class="item">
+              <h4>${escapeHtml(r.p.nome)} ${r.isPack ? `<span class="badge">Pacote</span>` : ``}</h4>
+              <div class="meta">
+                <span>Stock real (ID): <strong>${r.real}</strong></span>
+                ${r.isPack ? `<span>Base: <strong>${escapeHtml(r.baseName)}</strong></span>` : ``}
+                ${r.isPack ? `<span>Factor: <strong>${Number(r.p.stockFactor || 1)}</strong></span>` : ``}
+                ${r.isPack ? `<span>Vendável: <strong>${r.vend}</strong></span>` : ``}
+              </div>
+            </div>
+          `
+            )
+            .join("")}
+        </div>
+      </div>
+    `;
+    return;
+  }
+
+  if (reportActiveId === "r11") {
+    const prods = (db.products || []).filter((p) => p?.ativo);
+    const lows = prods
+      .map((p) => {
+        const isPack = !!p.stockBaseId;
+        const qty = isPack ? vendableStockForPackage(p) : invQty(p.id);
+        const min = Number(p.minStock || 0);
+        return { p, qty, min, isPack };
+      })
+      .filter((x) => x.min > 0 && x.qty <= x.min)
+      .sort((a, b) => a.qty - b.qty);
+
+    body.innerHTML = `
+      <div class="card">
+        <div class="label">Alertas de stock mínimo</div>
+        <div class="list">
+          ${
+            lows.length
+              ? lows
+                  .map(
+                    (x) => `
+            <div class="item">
+              <h4>${escapeHtml(x.p.nome)} ${x.isPack ? `<span class="badge">Pacote</span>` : ``} <span class="badge">Baixo</span></h4>
+              <div class="meta">
+                <span>Disponível: <strong>${x.qty}</strong></span>
+                <span>Mínimo: ${x.min}</span>
+              </div>
+            </div>
+          `
+                  )
+                  .join("")
+              : `<div class="muted">Sem alertas no período atual.</div>`
+          }
+        </div>
+      </div>
+    `;
+    return;
+  }
+
+  if (reportActiveId === "r12") {
+    const ticket = saleCount ? totalSales / saleCount : 0;
+    body.innerHTML = `
+      <div class="grid two">
+        <div class="card">
+          <div class="label">Ticket médio</div>
+          <div class="kpi">${MT(ticket)}</div>
+          <div class="muted">${saleCount} vendas no período</div>
+        </div>
+        <div class="card">
+          <div class="label">Tendência (Vendas/dia)</div>
+          ${svgLineChart({ labels: days.map((d) => d.slice(5)), values: salesByDay })}
+        </div>
+      </div>
+    `;
+    return;
+  }
+
+  body.innerHTML = `<div class="muted">Relatório não encontrado.</div>`;
+}
+function renderWorkspaceBadge() {
+  const el = document.getElementById("workspaceBadge");
+  if (!el) return;
+
+  const ws = getWorkspaceId ? getWorkspaceId() : "";
+  const nome = db?.company?.nome || "";
+
+  if (!ws) {
+    el.textContent = "🏪 Workspace não definido";
+    return;
+  }
+
+  el.textContent = nome
+    ? `🏪 ${nome} • ${ws}`
+    : `🏪 Workspace: ${ws}`;
 }
 
 /* =======================
@@ -1379,10 +2180,11 @@ function renderAll() {
   renderCart();
   renderSalesList();
   renderBuysList();
-  renderReportsBase();
   renderUsersSection();
   renderUserBadge();
   renderProductStockBaseSelect();
+  renderReportsVisual();
+  renderWorkspaceBadge()
 }
 
 /* =======================
@@ -1392,46 +2194,60 @@ function applyMobileClass() {
   const isMobile = window.innerWidth <= 900 || window.matchMedia("(pointer: coarse)").matches;
   document.body.classList.toggle("is-mobile", isMobile);
 }
-function stockBaseIdForProduct(productId){
-  const p = productById(productId);
-  // se for pacote -> usa stock base definido, senão usa ele próprio
-  return (p && p.stockBaseId) ? p.stockBaseId : productId;
-}
-
-function stockForProduct(productId){
-  const baseId = stockBaseIdForProduct(productId);
-  return invQty(baseId);
-}
-
-function consumptionQty(productId){
-  const p = productById(productId);
-  // se for pacote, consome a qty definida; se não, consome 1 por unidade
-  const q = Number(p?.stockConsumeQty || 1);
-  return q > 0 ? q : 1;
-}
 
 /* =======================
-   BOOT (um único DOMContentLoaded)
+   BOOT
 ======================= */
 window.addEventListener("DOMContentLoaded", async () => {
-  // 0) Gate auth (antes de qualquer coisa)
+  window.onerror = (m, s, l, c, e) => console.error("ERRO:", m, "linha:", l, "col:", c, s, e);
+
   bootAuthGate();
 
-  // 1) Modal close
+  // ===== Workspace (ID da Loja) =====
+  ensureWorkspaceModel();
+
+  const wsInput = document.getElementById("workspaceId");
+  const btnGenWs = document.getElementById("btnGenWorkspace");
+  const btnCmp = document.getElementById("btnCompanySetup");
+
+  if (wsInput) {
+    wsInput.value = getWorkspaceId();
+
+    wsInput.addEventListener("input", () => {
+      setWorkspaceId(wsInput.value);
+      wsInput.value = getWorkspaceId();
+    });
+
+    wsInput.addEventListener("blur", () => {
+      setWorkspaceId(wsInput.value);
+      wsInput.value = getWorkspaceId();
+    });
+  }
+
+  if (btnGenWs) {
+    btnGenWs.addEventListener("click", () => {
+      const id = generateWorkspaceId("DCNET");
+      setWorkspaceId(id);
+      if (wsInput) wsInput.value = getWorkspaceId();
+      alert(`ID da Loja criado: ${getWorkspaceId()}\nUse este mesmo ID em todos os dispositivos.`);
+    });
+  }
+
+  if (btnCmp) {
+    btnCmp.addEventListener("click", () => modalCompanySetup());
+  }
+
   const modalClose = document.getElementById("modalClose");
   if (modalClose) modalClose.addEventListener("click", closeModal);
   const modal = document.getElementById("modal");
   if (modal) modal.addEventListener("click", (e) => { if (e.target === modal) closeModal(); });
 
-  // 2) Menu navigation
   document.querySelectorAll(".mitem").forEach((btn) => btn.addEventListener("click", () => go(btn.dataset.page)));
   document.querySelectorAll("[data-nav]").forEach((btn) => btn.addEventListener("click", () => go(btn.dataset.nav)));
 
-  // 3) Sidebar toggle (desktop collapse + mobile drawer)
   const sidebarToggle = document.getElementById("sidebarToggle");
   const overlay = document.getElementById("overlay");
 
-  // restaura estado colapsado (desktop)
   const saved = localStorage.getItem("sidebarCollapsed");
   if (saved === "1") document.body.classList.add("sidebar-collapsed");
 
@@ -1448,40 +2264,28 @@ window.addEventListener("DOMContentLoaded", async () => {
       }
     });
   }
-
   if (overlay) overlay.addEventListener("click", () => document.body.classList.remove("menu-open"));
-  document.addEventListener("click", (e) => {
-    const item = e.target.closest(".mitem");
-    if (item && window.matchMedia("(max-width: 860px)").matches) {
-      document.body.classList.remove("menu-open");
-    }
-  });
 
   applyMobileClass();
   window.addEventListener("resize", applyMobileClass);
 
-  // 4) Top logout (único)
   const btnLogoutTop = document.getElementById("btnLogoutTop");
   if (btnLogoutTop) btnLogoutTop.addEventListener("click", (e) => { e.preventDefault(); doLogout(); });
 
-  // 5) Quick sale
   const btnQuickSale = document.getElementById("btnQuickSale");
   if (btnQuickSale) btnQuickSale.addEventListener("click", () => go("vendas"));
 
-  // 6) Produtos: lucro esperado
   const prodPrice = document.getElementById("prodPrice");
   const prodCost = document.getElementById("prodCost");
   if (prodPrice) prodPrice.addEventListener("input", updateProfitNote);
   if (prodCost) prodCost.addEventListener("input", updateProfitNote);
 
-  // 7) Vendas: limpar/finalizar
   const btnClearCart = document.getElementById("btnClearCart");
   if (btnClearCart) btnClearCart.addEventListener("click", () => { cart = []; renderCart(); });
 
   const btnCheckout = document.getElementById("btnCheckout");
   if (btnCheckout) btnCheckout.addEventListener("click", finalizeSale);
 
-  // 8) filtros / pesquisa
   const productSearch = document.getElementById("productSearch");
   if (productSearch) productSearch.addEventListener("input", renderProductsList);
 
@@ -1508,7 +2312,7 @@ window.addEventListener("DOMContentLoaded", async () => {
     renderSalesList();
   });
 
-  // 9) Config: export/import/reset
+  // Export/Import/Reset
   const btnExport = document.getElementById("btnExport");
   if (btnExport) {
     btnExport.addEventListener("click", () => {
@@ -1547,12 +2351,13 @@ window.addEventListener("DOMContentLoaded", async () => {
       if (confirm("Apagar tudo?")) {
         localStorage.removeItem(KEY);
         localStorage.removeItem(BACKUP_KEY);
+        localStorage.removeItem(WS_KEY);
         location.reload();
       }
     });
   }
 
-  // Online keys
+  // Supabase config
   const sbUrl = document.getElementById("sbUrl");
   const sbKey = document.getElementById("sbKey");
   if (sbUrl) sbUrl.value = db.online?.url || "";
@@ -1572,7 +2377,7 @@ window.addEventListener("DOMContentLoaded", async () => {
   const btnSync = document.getElementById("btnSync");
   if (btnSync) btnSync.addEventListener("click", syncNow);
 
-  // Auto-backup UI
+  // Auto-backup interval
   const autoMin = document.getElementById("autoBackupMinutes");
   if (autoMin) {
     db.settings = db.settings || {};
@@ -1592,24 +2397,31 @@ window.addEventListener("DOMContentLoaded", async () => {
   updateBackupStatusUI();
 
   // Auth buttons
+  const btnAddUser = document.getElementById("btnAddUser"); // ✅ estava faltando
   const btnGoRegister = document.getElementById("btnGoRegister");
   const btnBackLogin = document.getElementById("btnBackLogin");
   const btnLogin = document.getElementById("btnLogin");
   const btnRegister = document.getElementById("btnRegister");
   const btnForgotPin = document.getElementById("btnForgotPin");
 
-  if (btnGoRegister) {
-    btnGoRegister.addEventListener("click", () => {
+  if (btnAddUser) {
+    btnAddUser.addEventListener("click", () => {
+      if (!isAdmin()) return alert("Só ADMIN pode criar novos utilizadores.");
       setRegisterCopy();
       showAuthScreen("register");
+
+      const rn = document.getElementById("regName");
+      const rp = document.getElementById("regPin");
+      const rr = document.getElementById("regRole");
+
+      if (rn) rn.value = "";
+      if (rp) rp.value = "";
+      if (rr) rr.value = "staff";
     });
   }
-  if (btnBackLogin) {
-    btnBackLogin.addEventListener("click", () => {
-      refreshLoginUsers();
-      showAuthScreen("login");
-    });
-  }
+
+  if (btnGoRegister) btnGoRegister.addEventListener("click", () => { setRegisterCopy(); showAuthScreen("register"); });
+  if (btnBackLogin) btnBackLogin.addEventListener("click", () => { refreshLoginUsers(); showAuthScreen("login"); });
 
   if (btnForgotPin) {
     btnForgotPin.addEventListener("click", () => {
@@ -1654,6 +2466,9 @@ window.addEventListener("DOMContentLoaded", async () => {
 
   if (btnLogin) {
     btnLogin.addEventListener("click", () => {
+      // ✅ valida workspace DENTRO do click (não trava o boot)
+      if (!requireWorkspaceIdOrWarn()) return;
+
       const nome = document.getElementById("loginUser")?.value || "";
       const pin = document.getElementById("loginPin")?.value || "";
       const res = login(nome, pin);
@@ -1665,108 +2480,67 @@ window.addEventListener("DOMContentLoaded", async () => {
       hideAuthScreen();
       setAppLocked(false);
       renderAll();
-
-      // se o admin fez reset: obriga a mudar
-      if (res.mustChangePin) {
-        modalChangePinForced();
-      }
     });
   }
 
   if (btnRegister) {
     btnRegister.addEventListener("click", () => {
+      // ✅ valida workspace DENTRO do click
+      if (!requireWorkspaceIdOrWarn()) return;
+
       try {
         const nome = document.getElementById("regName")?.value || "";
         const pin = document.getElementById("regPin")?.value || "";
 
         const first = db.users.length === 0;
-        const role = first ? "admin" : (document.getElementById("regRole")?.value || "staff");
-
+        const roleVal = first ? "admin" : (document.getElementById("regRole")?.value || "staff");
         if (!first && !isAdmin()) return alert("Só ADMIN pode criar novos utilizadores.");
 
-        const u = createUser({ nome, pin, role });
+        const u = createUser({ nome, pin, role: roleVal });
         setLoggedInUser(u.id);
-
-        const rn = document.getElementById("regName");
-        const rp = document.getElementById("regPin");
-        if (rn) rn.value = "";
-        if (rp) rp.value = "";
 
         hideAuthScreen();
         setAppLocked(false);
         refreshLoginUsers();
         renderAll();
-
-        // opcional: pedir logo a pergunta de segurança
-        openModal(
-          "Definir recuperação de PIN (recomendado)",
-          `
-          <form id="qaForm" class="form2" data-qa-id="${u.id}">
-            <div class="field full">
-              <label>Pergunta de segurança</label>
-              <input class="input" id="qaQuestion" required placeholder="Ex: Qual é o nome da sua mãe?" />
-            </div>
-
-            <div class="field full">
-              <label>Resposta</label>
-              <input class="input" id="qaAnswer" required placeholder="Ex: Maria" />
-            </div>
-
-            <button class="btn big full" type="submit">Guardar</button>
-            <button class="btn ghost full" type="button" id="skipQA" style="margin-top:8px">Pular</button>
-          </form>
-          `
-        );
-
-        document.getElementById("skipQA")?.addEventListener("click", closeModal);
-
       } catch (err) {
         alert(err?.message || "Erro ao criar utilizador.");
       }
     });
   }
 
-  // Suporte
-  const btnSendIssue = document.getElementById("btnSendIssue");
-  if (btnSendIssue) {
-    btnSendIssue.addEventListener("click", () => {
-      const t = document.getElementById("issueText")?.value?.trim() || "";
-      if (!t) return alert("Escreva a descrição do problema.");
-      const it = document.getElementById("issueText");
-      const is = document.getElementById("issueSent");
-      if (it) it.value = "";
-      if (is) is.textContent = "Obrigado! Problema registrado (nesta V1 fica local).";
-    });
-  }
-
-  // Delegação: click geral
+  // Click delegation
   document.addEventListener("click", (e) => {
-    // Catalog add
     const addBtn = e.target.closest("[data-add]");
-    if (addBtn) return addToCart(addBtn.dataset.add);
+    if (addBtn) { addToCart(addBtn.dataset.add); return; }
 
-    // Cart qty/remove
+    const cancelBtn = e.target.closest("[data-cancel-sale]");
+    if (cancelBtn) { cancelSale(cancelBtn.dataset.cancelSale); return; }
+
     const dec = e.target.closest("[data-dec]");
-    if (dec) return changeQty(dec.dataset.dec, -1);
+    if (dec) { changeQty(dec.dataset.dec, -1); return; }
     const inc = e.target.closest("[data-inc]");
-    if (inc) return changeQty(inc.dataset.inc, +1);
+    if (inc) { changeQty(inc.dataset.inc, +1); return; }
     const rem = e.target.closest("[data-rem]");
-    if (rem) return removeFromCart(rem.dataset.rem);
+    if (rem) { removeFromCart(rem.dataset.rem); return; }
 
-    // Accounts edit/delete
     const editAcc = e.target.closest("[data-edit-acc]");
-    if (editAcc) return modalAccount(editAcc.dataset.editAcc);
+    if (editAcc) { modalAccount(editAcc.dataset.editAcc); return; }
     const delAcc = e.target.closest("[data-del-acc]");
-    if (delAcc) return deleteAccount(delAcc.dataset.delAcc);
+    if (delAcc) { deleteAccount(delAcc.dataset.delAcc); return; }
 
-    // Products toggle/delete
+    const invAdj = e.target.closest("[data-inv-adjust]");
+    if (invAdj) { modalInventoryAdjust(invAdj.dataset.invAdjust); return; }
+
     const togProd = e.target.closest("[data-toggle-prod]");
     if (togProd) {
       const id = togProd.dataset.toggleProd;
       db.products = db.products.map((p) => (p.id === id ? { ...p, ativo: !p.ativo } : p));
       touch();
-      return renderAll();
+      renderAll();
+      return;
     }
+
     const delProd = e.target.closest("[data-del-prod]");
     if (delProd) {
       if (!guard("products.delete", "Só ADMIN pode apagar produtos.")) return;
@@ -1775,10 +2549,10 @@ window.addEventListener("DOMContentLoaded", async () => {
       db.products = db.products.filter((p) => p.id !== id);
       if (db.inventory?.[id] != null) delete db.inventory[id];
       touch();
-      return renderAll();
+      renderAll();
+      return;
     }
 
-    // Customers delete
     const delCust = e.target.closest("[data-del-cust]");
     if (delCust) {
       const id = delCust.dataset.delCust;
@@ -1787,15 +2561,9 @@ window.addEventListener("DOMContentLoaded", async () => {
       if (id === base) return alert("Não pode apagar o cliente balcão.");
       db.customers = db.customers.filter((c) => c.id !== id);
       touch();
-      return renderAll();
+      renderAll();
+      return;
     }
-
-    // Users section (Admin)
-    const addUser = e.target.closest("#btnAddUser");
-    if (addUser) return modalUser(null);
-
-    const uEdit = e.target.closest("[data-user-edit]");
-    if (uEdit) return modalUser(uEdit.dataset.userEdit);
 
     const uPin = e.target.closest("[data-user-pin]");
     if (uPin) {
@@ -1825,7 +2593,37 @@ window.addEventListener("DOMContentLoaded", async () => {
     }
 
     const uQA = e.target.closest("[data-user-qa]");
-    if (uQA) return modalSetQA(uQA.dataset.userQa);
+    if (uQA) {
+      if (!isAdmin()) return alert("Só ADMIN pode definir pergunta/recuperação.");
+      const userId = uQA.dataset.userQa;
+      const u = db.users.find((x) => x.id === userId);
+      if (!u) return;
+
+      openModal(
+        "Definir recuperação de PIN",
+        `
+          <form id="qaForm" class="form2" data-qa-id="${userId}">
+            <div class="field full">
+              <label>Utilizador</label>
+              <input class="input" value="${safeText(u.nome)}" disabled />
+            </div>
+
+            <div class="field full">
+              <label>Pergunta de segurança</label>
+              <input class="input" id="qaQuestion" required value="${safeText(u.securityQuestion || "")}" placeholder="Ex: Qual é o nome da sua mãe?"/>
+            </div>
+
+            <div class="field full">
+              <label>Resposta</label>
+              <input class="input" id="qaAnswer" required placeholder="Digite a resposta..." />
+            </div>
+
+            <button class="btn big full" type="submit">Guardar</button>
+          </form>
+        `
+      );
+      return;
+    }
 
     const uToggle = e.target.closest("[data-user-toggle]");
     if (uToggle) {
@@ -1835,12 +2633,105 @@ window.addEventListener("DOMContentLoaded", async () => {
       if (me && me.id === id) return alert("Você não pode desativar o seu próprio utilizador.");
       db.users = db.users.map((u) => (u.id === id ? { ...u, ativo: u.ativo === false ? true : false } : u));
       touch();
-      return renderAll();
+      renderAll();
+      return;
     }
   });
 
-  // Delegação: submit geral (modais + forms)
+  // Submit handler (✅ tudo dentro do listener, sem "e" solto)
   document.addEventListener("submit", (e) => {
+    // Empresa
+    const companyForm = e.target.closest("#companyForm");
+    if (companyForm) {
+      e.preventDefault();
+      ensureWorkspaceModel();
+
+      db.company = {
+        nome: (document.getElementById("cmpNome")?.value || "").trim(),
+        nuit: (document.getElementById("cmpNuit")?.value || "").trim(),
+        contacto: (document.getElementById("cmpContacto")?.value || "").trim(),
+        morada: (document.getElementById("cmpMorada")?.value || "").trim(),
+        email: (document.getElementById("cmpEmail")?.value || "").trim(),
+      };
+
+      touch();
+      closeModal();
+      alert("Empresa guardada!");
+      return;
+    }
+
+    // Inventário
+    const invAdjustForm = e.target.closest("#invAdjustForm");
+    if (invAdjustForm) {
+      e.preventDefault();
+
+      const pid = invAdjustForm.getAttribute("data-pid");
+      const type = document.getElementById("invAdjType")?.value || "in";
+      const qty = Number(document.getElementById("invAdjQty")?.value || 0);
+      const reason = document.getElementById("invAdjReason")?.value || "";
+      const date = document.getElementById("invAdjDate")?.value || todayISO();
+      const note = document.getElementById("invAdjNote")?.value || "";
+
+      try {
+        applyInventoryAdjustment(pid, type, qty, reason, date, note);
+        closeModal();
+        renderAll();
+        alert("Ajuste aplicado!");
+      } catch (err) {
+        alert(err?.message || "Erro ao aplicar ajuste.");
+      }
+      return;
+    }
+
+    // Reset PIN
+    const pinForm = e.target.closest("#pinForm");
+    if (pinForm) {
+      e.preventDefault();
+      if (!isAdmin()) return alert("Só ADMIN pode resetar PIN.");
+
+      const id = pinForm.getAttribute("data-pin-id");
+      const newPin = (document.getElementById("newPin")?.value || "").trim();
+      if (!/^\d{4,8}$/.test(newPin)) return alert("PIN deve ter 4–8 dígitos.");
+
+      adminResetPin(id, newPin);
+      closeModal();
+      renderAll();
+      alert("PIN temporário definido!");
+      return;
+    }
+
+    // QA
+    const qaForm = e.target.closest("#qaForm");
+    if (qaForm) {
+      e.preventDefault();
+      const id = qaForm.getAttribute("data-qa-id");
+      const q = document.getElementById("qaQuestion")?.value || "";
+      const a = document.getElementById("qaAnswer")?.value || "";
+      setSecurityQA(id, q, a)
+        .then(() => {
+          closeModal();
+          renderAll();
+          alert("Recuperação definida!");
+        })
+        .catch((err) => alert(err?.message || "Erro ao guardar pergunta."));
+      return;
+    }
+
+    // Recover
+    const recoverForm = e.target.closest("#recoverForm");
+    if (recoverForm) {
+      e.preventDefault();
+      const userId = recoverForm.getAttribute("data-user-id");
+      const ans = document.getElementById("recoverAnswer")?.value || "";
+      const newPin = document.getElementById("recoverNewPin")?.value || "";
+      recoverPinByQuestion(userId, ans, newPin).then(() => {
+        closeModal();
+        refreshLoginUsers();
+      });
+      return;
+    }
+
+    // Accounts form
     const accForm = e.target.closest("#accForm");
     if (accForm) {
       e.preventDefault();
@@ -1867,6 +2758,7 @@ window.addEventListener("DOMContentLoaded", async () => {
       return;
     }
 
+    // Produto
     const productForm = e.target.closest("#productForm");
     if (productForm) {
       e.preventDefault();
@@ -1885,20 +2777,18 @@ window.addEventListener("DOMContentLoaded", async () => {
         desc: (document.getElementById("prodDesc")?.value || "").trim(),
         ativo: true,
         stockBaseId: document.getElementById("prodStockBase")?.value || "",
-stockFactor: Math.max(1, Number(document.getElementById("prodStockFactor")?.value || 1)),
-
+        stockFactor: Math.max(1, Number(document.getElementById("prodStockFactor")?.value || 1)),
       };
-      
+
       db.products.push(p);
       touch();
       productForm.reset();
-      const ms = document.getElementById("prodMinStock");
-      if (ms) ms.value = 0;
       updateProfitNote();
       renderAll();
       return;
     }
 
+    // Cliente
     const customerForm = e.target.closest("#customerForm");
     if (customerForm) {
       e.preventDefault();
@@ -1918,6 +2808,7 @@ stockFactor: Math.max(1, Number(document.getElementById("prodStockFactor")?.valu
       return;
     }
 
+    // Compra
     const buyForm = e.target.closest("#buyForm");
     if (buyForm) {
       e.preventDefault();
@@ -1943,140 +2834,31 @@ stockFactor: Math.max(1, Number(document.getElementById("prodStockFactor")?.valu
       setInv(productId, invQty(productId) + qty);
       addLedger({ date, type: "out", accountId, amount: total, refType: "purchase", refId: purchase.id, note: `Compra ${supplier}` });
 
-      // atualiza custo ref
       db.products = db.products.map((p) => (p.id === productId ? { ...p, precoAquisicaoRef: costUnit } : p));
 
       touch();
       buyForm.reset();
-      const bd = document.getElementById("buyDate");
-      const bq = document.getElementById("buyQty");
-      if (bd) bd.value = todayISO();
-      if (bq) bq.value = 1;
-      renderAll();
-      return;
-    }
-
-    const userForm = e.target.closest("#userForm");
-    if (userForm) {
-      e.preventDefault();
-      if (!isAdmin()) return alert("Só ADMIN pode criar/editar.");
-
-      const editId = userForm.getAttribute("data-edit-id");
-      const nome = (document.getElementById("uName")?.value || "").trim();
-      const pin = (document.getElementById("uPin")?.value || "").trim();
-      const first = db.users.length === 0;
-      const roleVal = first ? "admin" : (document.getElementById("uRole")?.value || "staff");
-
-      if (!nome) return alert("Nome obrigatório.");
-
-      if (!editId) {
-        if (!/^\d{4,8}$/.test(pin)) return alert("PIN deve ter 4–8 dígitos.");
-        createUser({ nome, pin, role: roleVal });
-        closeModal();
-        renderAll();
-        alert("Utilizador criado!");
-        return;
-      }
-
-      // editar (PIN opcional)
-      db.users = db.users.map((u) => {
-        if (u.id !== editId) return u;
-        const next = { ...u, nome, role: roleVal };
-        if (pin) {
-          if (!/^\d{4,8}$/.test(pin)) {
-            alert("PIN deve ter 4–8 dígitos.");
-            return u;
-          }
-          next.pin = pin;
-          next.mustChangePin = false;
-        }
-        return next;
-      });
-
-      touch();
-      closeModal();
-      renderAll();
-      alert("Utilizador atualizado!");
-      return;
-    }
-
-    const pinForm = e.target.closest("#pinForm");
-    if (pinForm) {
-      e.preventDefault();
-      if (!isAdmin()) return alert("Só ADMIN pode resetar PIN.");
-
-      const id = pinForm.getAttribute("data-pin-id");
-      const newPin = (document.getElementById("newPin")?.value || "").trim();
-      if (!/^\d{4,8}$/.test(newPin)) return alert("PIN deve ter 4–8 dígitos.");
-
-      adminResetPin(id, newPin);
-      closeModal();
-      renderAll();
-      alert("PIN temporário definido!");
-      return;
-    }
-
-    const qaForm = e.target.closest("#qaForm");
-    if (qaForm) {
-      e.preventDefault();
-      if (!isAdmin() && db.users.length > 1) {
-        // regra simples: só admin define QA para outros
-        // (primeiro user ao criar pode passar aqui porque ainda está logado como admin)
-      }
-      const id = qaForm.getAttribute("data-qa-id");
-      const q = document.getElementById("qaQuestion")?.value || "";
-      const a = document.getElementById("qaAnswer")?.value || "";
-      setSecurityQA(id, q, a)
-        .then(() => {
-          closeModal();
-          renderAll();
-          alert("Recuperação definida!");
-        })
-        .catch((err) => alert(err?.message || "Erro ao guardar pergunta."));
-      return;
-    }
-
-    const recoverForm = e.target.closest("#recoverForm");
-    if (recoverForm) {
-      e.preventDefault();
-      const userId = recoverForm.getAttribute("data-user-id");
-      const ans = document.getElementById("recoverAnswer")?.value || "";
-      const newPin = document.getElementById("recoverNewPin")?.value || "";
-      recoverPinByQuestion(userId, ans, newPin).then(() => {
-        closeModal();
-        refreshLoginUsers();
-      });
-      return;
-    }
-
-    const forcePinForm = e.target.closest("#forcePinForm");
-    if (forcePinForm) {
-      e.preventDefault();
-      const oldPin = document.getElementById("forceOldPin")?.value || "";
-      const newPin = document.getElementById("forceNewPin")?.value || "";
-      changeMyPin(oldPin, newPin);
-      closeModal();
       renderAll();
       return;
     }
   });
 
-  // 10) Datas default
+  // defaults
   const bd = document.getElementById("buyDate");
   if (bd && !bd.value) bd.value = todayISO();
   const sd = document.getElementById("saleDate");
   if (sd && !sd.value) sd.value = todayISO();
 
-  // 11) Supabase init
   await initSupabaseIfConfigured();
 
-  // 12) Auto-backup timer + beforeunload
   try {
     const mins = Math.max(5, Number(db.settings?.autoBackupMinutes || 10));
     setInterval(() => saveAutoSnapshot(), mins * 60 * 1000);
     window.addEventListener("beforeunload", () => saveAutoSnapshot());
   } catch {}
 
-  // 13) Render
+  
   renderAll();
 });
+
+})();
