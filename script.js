@@ -9,7 +9,7 @@ async function registerServiceWorker() {
 }
 
 window.addEventListener("DOMContentLoaded", async () => {
-  await registerServiceWorker();
+ 
 });
 
 (() => {
