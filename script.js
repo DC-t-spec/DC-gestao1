@@ -1,3 +1,17 @@
+async function registerServiceWorker() {
+  if (!("serviceWorker" in navigator)) return;
+  try {
+    await navigator.serviceWorker.register("./sw.js", { scope: "./" });
+    console.log("✅ Service Worker registado");
+  } catch (e) {
+    console.warn("❌ Falha SW", e);
+  }
+}
+
+window.addEventListener("DOMContentLoaded", async () => {
+  await registerServiceWorker();
+});
+
 (() => {
   "use strict";
 
