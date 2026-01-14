@@ -35,6 +35,19 @@ window.addEventListener("DOMContentLoaded", async () => {
  * - Corrigido: btnAddUser não declarado
  * - Corrigido: requireWorkspaceIdOrWarn estava fora do click (parava o boot)
  ************************/
+const SB_URL_KEY = "gestao_facil_sb_url";
+const SB_KEY_KEY = "gestao_facil_sb_key";
+
+function getOnlineConfig(){
+  return {
+    url: (localStorage.getItem(SB_URL_KEY) || "").trim(),
+    key: (localStorage.getItem(SB_KEY_KEY) || "").trim(),
+  };
+}
+function setOnlineConfig(url, key){
+  localStorage.setItem(SB_URL_KEY, (url || "").trim());
+  localStorage.setItem(SB_KEY_KEY, (key || "").trim());
+}
 
 /* =======================
    Utils
@@ -213,19 +226,54 @@ function loadScriptOnce(src, id) {
 }
 
 async function initSupabaseIfConfigured() {
-  const { url, key } = db.online || {};
+  const { url, key } = getOnlineConfig();
+
   if (!url || !key) {
     setSyncState("Modo: Offline");
     supabase = null;
     return;
   }
+
   await loadScriptOnce(
     "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js",
     "supabase-cdn"
   );
+
   supabase = window.supabase.createClient(url, key);
   setSyncState("Modo: Online (Supabase)");
 }
+async function syncPull() {
+  await initSupabaseIfConfigured();
+  if (!supabase) return false;
+
+  const workspaceId = getWorkspaceId();
+  if (!workspaceId) {
+    alert("Defina o ID da Loja/Workspace primeiro.");
+    return false;
+  }
+
+  setSyncState("A carregar da nuvem...");
+
+  const { data, error } = await supabase
+    .from("snapshots")
+    .select("*")
+    .eq("workspace_id", workspaceId)
+    .single();
+
+  if (error) {
+    console.error("PULL ERROR:", error);
+    setSyncState("Online (sem dados)");
+    alert("Não encontrei dados na nuvem para este Workspace ID. Confirma se já sincronizaste no 1º dispositivo.");
+    return false;
+  }
+
+  db = data.data;          // ✅ traz o DB inteiro (inclui users)
+  saveLocal(db);
+  setSyncState("Online (ok)");
+  renderAll();
+  return true;
+}
+
 
 async function syncNow() {
   if (!supabase) {
