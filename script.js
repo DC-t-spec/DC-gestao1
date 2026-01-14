@@ -2272,6 +2272,32 @@ async function registerServiceWorker() {
 
   window.addEventListener("DOMContentLoaded", async () => {
     await registerServiceWorker();
+    // Preencher URL/KEY no auth
+const sbUrlAuth = document.getElementById("sbUrlAuth");
+const sbKeyAuth = document.getElementById("sbKeyAuth");
+const btnPullCloud = document.getElementById("btnPullCloud");
+
+if (sbUrlAuth && sbKeyAuth) {
+  const cfg = getOnlineConfig();
+  sbUrlAuth.value = cfg.url;
+  sbKeyAuth.value = cfg.key;
+
+  sbUrlAuth.addEventListener("input", () => setOnlineConfig(sbUrlAuth.value, sbKeyAuth.value));
+  sbKeyAuth.addEventListener("input", () => setOnlineConfig(sbUrlAuth.value, sbKeyAuth.value));
+}
+
+if (btnPullCloud) {
+  btnPullCloud.addEventListener("click", async () => {
+    if (!requireWorkspaceIdOrWarn()) return;
+    const ok = await syncPull();
+    if (ok) {
+      // agora o db.users já veio da nuvem, então o gate vai mostrar login normal
+      bootAuthGate();
+      alert("Dados carregados da nuvem. Agora pode fazer login.");
+    }
+  });
+}
+
   window.onerror = (m, s, l, c, e) => console.error("ERRO:", m, "linha:", l, "col:", c, s, e);
 
   bootAuthGate();
