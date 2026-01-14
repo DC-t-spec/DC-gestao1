@@ -2212,7 +2212,18 @@ function applyMobileClass() {
 /* =======================
    BOOT
 ======================= */
-window.addEventListener("DOMContentLoaded", async () => {
+async function registerServiceWorker() {
+  if (!("serviceWorker" in navigator)) return;
+  try {
+    await navigator.serviceWorker.register("./sw.js", { scope: "./" });
+    console.log("✅ Service Worker registado");
+  } catch (e) {
+    console.warn("❌ Falha ao registar SW:", e);
+  }
+}
+
+  window.addEventListener("DOMContentLoaded", async () => {
+    await registerServiceWorker();
   window.onerror = (m, s, l, c, e) => console.error("ERRO:", m, "linha:", l, "col:", c, s, e);
 
   bootAuthGate();
