@@ -35,18 +35,27 @@ window.addEventListener("DOMContentLoaded", async () => {
  * - Corrigido: btnAddUser não declarado
  * - Corrigido: requireWorkspaceIdOrWarn estava fora do click (parava o boot)
  ************************/
-const SB_URL_KEY = "gestao_facil_sb_url";
-const SB_KEY_KEY = "gestao_facil_sb_key";
+const WORKSPACE_KEY = "gestao_facil_workspace_id";
 
-function getOnlineConfig(){
-  return {
-    url: (localStorage.getItem(SB_URL_KEY) || "").trim(),
-    key: (localStorage.getItem(SB_KEY_KEY) || "").trim(),
-  };
+function normalizeWorkspaceId(v){
+  return String(v || "")
+    .trim()
+    .toUpperCase()
+    .replace(/\s+/g, "-")
+    .replace(/[^A-Z0-9\-]/g, "");
 }
-function setOnlineConfig(url, key){
-  localStorage.setItem(SB_URL_KEY, (url || "").trim());
-  localStorage.setItem(SB_KEY_KEY, (key || "").trim());
+
+function getWorkspaceId(){
+  return normalizeWorkspaceId(localStorage.getItem(WORKSPACE_KEY) || "");
+}
+
+function setWorkspaceId(v){
+  const id = normalizeWorkspaceId(v);
+  if (!id) return false;
+  localStorage.setItem(WORKSPACE_KEY, id);
+  return true;
+}
+
 }
 
 /* =======================
