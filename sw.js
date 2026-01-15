@@ -1,5 +1,5 @@
 /* sw.js — Gestão Fácil */
-const CACHE_VERSION = "gf-v1.0.7"; // MUDA sempre que atualizares
+const CACHE_VERSION = "gf-v1.0.8";
 
 const APP_SHELL = [
   "./",
@@ -33,13 +33,18 @@ self.addEventListener("fetch", (event) => {
   const req = event.request;
   const url = new URL(req.url);
 
-  // só cachear o que é do mesmo domínio
+  // Só do mesmo domínio
   if (url.origin !== self.location.origin) return;
 
-  // ✅ NETWORK-FIRST para a página e para o JS (evita ficar preso em JS velho)
-  const isHTML = req.mode === "navigate" || url.pathname.endsWith("/index.html") || url.pathname === "/" ;
+  const isHTML =
+    req.mode === "navigate" ||
+    url.pathname.endsWith("/index.html") ||
+    url.pathname === "/" ||
+    url.pathname.endsWith("/");
+
   const isJS = url.pathname.endsWith("/script.js");
 
+  // ✅ NETWORK-FIRST para HTML e script.js (para nunca ficares preso em JS velho)
   if (isHTML || isJS) {
     event.respondWith(
       fetch(req)
@@ -48,14 +53,14 @@ self.addEventListener("fetch", (event) => {
           caches.open(CACHE_VERSION).then((cache) => cache.put(req, copy));
           return res;
         })
-        .catch(() => caches.match(req, { ignoreSearch: true }))
+        .catch(() => caches.match(req))
     );
     return;
   }
 
   // ✅ CACHE-FIRST para o resto
   event.respondWith(
-    caches.match(req, { ignoreSearch: true }).then((cached) => {
+    caches.match(req).then((cached) => {
       if (cached) return cached;
 
       return fetch(req)
@@ -68,4 +73,3 @@ self.addEventListener("fetch", (event) => {
     })
   );
 });
-
