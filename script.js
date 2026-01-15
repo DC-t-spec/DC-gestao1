@@ -1,3 +1,4 @@
+alert("JS NOVO carregou ✅ v2026-01-15");
 (() => {
   "use strict";
 
