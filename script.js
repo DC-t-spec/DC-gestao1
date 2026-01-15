@@ -13,7 +13,7 @@
    *
    * ✅ Correções aplicadas:
    * - Removido: bloco Workspace duplicado e chaves duplicadas
-   * - Corrigido: chaves de Supabase/config (getOnlineConfig/setOnlineConfig)
+   * - Corrigido: chaves de Supabase/config (getConfig/setOnlineConfig)
    * - Corrigido: estrutura do ficheiro (sem código fora do IIFE)
    * - ✅ Sync multi-dispositivo: PULL + MERGE + PUSH (não sobrescreve)
    * - ✅ Timestamps adicionados em sales/purchases/inventoryAdjustments
@@ -202,6 +202,27 @@
     db.online.key = k;
     saveLocal(db);
   }
+// ===== Online config (por dispositivo) =====
+const SB_URL_KEY = "gestao_facil_supabase_url";
+const SB_KEY_KEY = "gestao_facil_supabase_key";
+
+function getOnlineConfig() {
+  // prioridade: localStorage (por dispositivo) -> db.online
+  const url = (localStorage.getItem(SB_URL_KEY) || db?.online?.url || "").trim();
+  const key = (localStorage.getItem(SB_KEY_KEY) || db?.online?.key || "").trim();
+  return { url, key };
+}
+
+function setOnlineConfig(url, key) {
+  const u = (url || "").trim();
+  const k = (key || "").trim();
+  localStorage.setItem(SB_URL_KEY, u);
+  localStorage.setItem(SB_KEY_KEY, k);
+  db.online = db.online || { url: "", key: "" };
+  db.online.url = u;
+  db.online.key = k;
+  saveLocal(db);
+}
 
   /* =======================
      Online (Supabase opcional)
@@ -410,6 +431,7 @@
     const { error: pushErr } = await supabase
       .from("snapshots")
       .upsert(payload, { onConflict: "workspace_id" });
+    
 
     if (pushErr) {
       console.error("PUSH ERROR:", pushErr);
@@ -2411,6 +2433,15 @@
           bootAuthGate();
           alert("Dados carregados da nuvem. Agora pode fazer login.");
         }
+        // TESTE SIMPLES DO BOTÃO "CARREGAR DA NUVEM"
+document.addEventListener("click", (e) => {
+  const btn = e.target.closest("#btnPullCloud");
+  if (!btn) return;
+
+  e.preventDefault();
+  alert("✅ O botão Carregar da Nuvem foi clicado!");
+});
+
       });
     }
 
@@ -2873,6 +2904,34 @@
         alert("Empresa guardada!");
         return;
       }
+// ===== Delegation: Carregar da nuvem (funciona mesmo no telemóvel) =====
+document.addEventListener("click", async (e) => {
+  const btn = e.target.closest("#btnPullCloud");
+  if (!btn) return;
+
+  e.preventDefault();
+  e.stopPropagation();
+
+  alert("Clique detectado ✅ (Carregar da nuvem)"); // <-- depois podes remover
+
+  try {
+    if (!requireWorkspaceIdOrWarn()) return;
+
+    // garante que URL/KEY do auth foram guardadas
+    const sbUrlAuth = document.getElementById("sbUrlAuth")?.value || "";
+    const sbKeyAuth = document.getElementById("sbKeyAuth")?.value || "";
+    if (sbUrlAuth && sbKeyAuth) setOnlineConfig(sbUrlAuth, sbKeyAuth);
+
+    const ok = await syncPull();
+    if (ok) {
+      bootAuthGate();
+      alert("Dados carregados da nuvem. Agora pode fazer login.");
+    }
+  } catch (err) {
+    console.error(err);
+    alert("Erro ao carregar da nuvem: " + (err?.message || err));
+  }
+});
 
       // Inventário
       const invAdjustForm = e.target.closest("#invAdjustForm");
