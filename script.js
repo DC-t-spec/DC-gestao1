@@ -1,6 +1,9 @@
-alert("JS NOVO carregou ✅ v2026-01-15");
 (() => {
   "use strict";
+
+  // ✅ confirma que o JS novo está a correr
+  alert("JS NOVO carregou ✅ v2026-01-15");
+  console.log("JS NOVO carregou ✅ v2026-01-15");
 
   /***********************
    * Gestão Fácil - V1 (JS ÚNICO COMPLETO • CORRIGIDO)
@@ -29,6 +32,7 @@ alert("JS NOVO carregou ✅ v2026-01-15");
     window.crypto && crypto.randomUUID
       ? crypto.randomUUID()
       : Math.random().toString(16).slice(2) + Date.now().toString(16);
+
 
   const byName = (a, b) => (a.nome || "").localeCompare(b.nome || "");
   const safeText = (s) =>
