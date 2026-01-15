@@ -126,14 +126,6 @@ alert("JS NOVO carregou ✅ v2026-01-15");
   ======================= */
   const WS_KEY = "gestao_facil_workspace_id";
 
-  function normalizeWorkspaceId(v) {
-    return String(v || "")
-      .trim()
-      .toUpperCase()
-      .replace(/\s+/g, "-")
-      .replace(/[^A-Z0-9\-]/g, "");
-  }
-
   function ensureWorkspaceModel() {
     db.meta = db.meta || {};
     if (db.meta.workspaceId == null) db.meta.workspaceId = "";
@@ -142,20 +134,6 @@ alert("JS NOVO carregou ✅ v2026-01-15");
     const ls = normalizeWorkspaceId(localStorage.getItem(WS_KEY) || "");
     if (ls && !db.meta.workspaceId) db.meta.workspaceId = ls;
     if (db.meta.workspaceId) localStorage.setItem(WS_KEY, normalizeWorkspaceId(db.meta.workspaceId));
-  }
-
-  function getWorkspaceId() {
-    ensureWorkspaceModel();
-    return normalizeWorkspaceId(db.meta.workspaceId || localStorage.getItem(WS_KEY) || "");
-  }
-
-  function setWorkspaceId(v) {
-    ensureWorkspaceModel();
-    const id = normalizeWorkspaceId(v);
-    db.meta.workspaceId = id;
-    localStorage.setItem(WS_KEY, id);
-    touch();
-    return id;
   }
 
   function generateWorkspaceId(prefix = "DCNET") {
