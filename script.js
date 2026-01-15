@@ -251,6 +251,7 @@ async function syncPull() {
     alert("Defina o ID da Loja/Workspace primeiro.");
     return false;
   }
+console.log("WORKSPACE (app):", getWorkspaceId());
 
   setSyncState("A carregar da nuvem...");
 
