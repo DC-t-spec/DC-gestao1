@@ -3,603 +3,559 @@
 
   <head>
     <meta charset="UTF-8">
-    <title>DC project</title>
+    <title>projecto DC2</title>
     <link rel="stylesheet" href="./style.css">
-<link rel="manifest" href="./manifest.webmanifest">
-<meta name="theme-color" content="#0b1020">
 
   </head>
     
   <body>
-  <!-- AUTH SCREEN (Login / Criar utilizador) -->
-<div class="auth" id="authScreen" style="display:none">
-  <div class="auth-card">
-    <div class="auth-head">
-      <div class="logo">DC</div>
-      <div>
-        <h2 style="margin:0">Gestão Fácil</h2>
-        <p class="muted" style="margin:4px 0 0">Entrar para continuar</p>
-      </div>
-    </div>
+  <div id="app">
 
-    <!-- LOGIN MODE -->
-    <div id="authModeLogin">
-    <!-- ID DA LOJA / BASE PARTILHADA -->
-<div class="field">
-  <label>ID da Loja (base partilhada)</label>
-
-  <input id="sbUrlAuth" class="input" placeholder="Supabase URL">
-<input id="sbKeyAuth" class="input" placeholder="Supabase Key (sb_publishable...)">
-<button id="btnPullCloud" class="btn" type="button">Carregar da Nuvem</button>
-
-  <div class="row gap" style="align-items:center">
-    <input class="input" id="workspaceId" placeholder="Ex: DCNET-LOJA1" />
-    <button class="btn ghost" id="btnGenWorkspace" type="button">Gerar</button>
-  </div>
-
-  <small class="muted">
-    Use o <strong>mesmo ID</strong> em todos os dispositivos da mesma loja para partilhar a base.
-  </small>
-</div>
-
-<div class="row between" style="margin:10px 0 14px">
-  <button class="btn ghost" id="btnCompanySetup" type="button">Configurar empresa</button>
-  <span class="muted" id="companyHint"></span>
-</div>
-
-
-      <div class="field">
-        <label>Utilizador</label>
-        <select class="input" id="loginUser"></select>
-      </div>
-
-      <div class="field">
-        <label>PIN</label>
-        <input
-          class="input"
-          id="loginPin"
-          type="password"
-          inputmode="numeric"
-          placeholder="ex: 1234"
-        />
-      </div>
-
-      <button class="btn big full" id="btnLogin" type="button">Iniciar sessão</button>
-      <button class="btn ghost" id="btnForgotPin" type="button">Esqueci PIN</button>
-
-      <div class="row between" style="margin-top:10px">
-        <span class="muted" id="loginHint"></span>
-        <button class="btn ghost" id="btnGoRegister" type="button">Criar utilizador</button>
-      </div>
-    </div>
-
-    <!-- REGISTER MODE -->
-    <div id="authModeRegister" style="display:none">
-      <p class="muted" id="registerTitle" style="margin-top:0"></p>
-
- <div class="field">
-  <label>ID da Loja (base partilhada)</label>
-  <input class="input" id="workspaceIdConfig placeholder="Ex: DCNET-LOJA1" />
-  <small class="muted">Use o mesmo ID em todos os dispositivos da mesma loja.</small>
-</div>
-     
-     <button class="btn ghost" id="btnGenWorkspace" type="button" style="margin-top:8px">
-  Gerar ID automaticamente
-</button>
-
-      
-      
-      <div class="field">
-        <label>Nome</label>
-        <input class="input" id="regName" placeholder="ex: Admin, Caixa 1" />
-      </div>
-
-      <div class="field">
-        <label>PIN (4–8 dígitos)</label>
-        <input
-          class="input"
-          id="regPin"
-          type="password"
-          inputmode="numeric"
-          placeholder="ex: 1234"
-        />
-      </div>
-
-      <div class="field" id="roleWrap">
-        <label>Nível</label>
-        <select class="input" id="regRole">
-          <option value="admin">Admin</option>
-          <option value="manager">Gestão</option>
-          <option value="staff">Caixa</option>
-        </select>
-      </div>
-
-      <button class="btn big full" id="btnRegister" type="button">Criar</button>
-      <button class="btn ghost full" id="btnBackLogin" type="button" style="margin-top:8px">
-        Voltar
-      </button>
-    </div>
-  </div>
-</div>
-
-<!-- APP -->
-<div class="app" style="display:flex">
-  <!-- SIDEBAR -->
-  <aside class="sidebar">
+  <!-- Topbar -->
+  <header class="topbar">
     <div class="brand">
       <div class="logo">DC</div>
-      <div>
-        <div class="brand-title">Gestão Fácil</div>
-        <div class="brand-sub">Offline + Online</div>
+      <div class="brand-txt">
+        <div class="title">Gestão Fácil</div>
+        <div class="subtitle" id="wsBadge">Workspace: —</div>
       </div>
     </div>
 
-    <nav class="menu">
-      <button class="mitem active" data-page="home">🏠 Home</button>
-      <button class="mitem" data-page="vendas">🛒 Vendas</button>
-      <button class="mitem" data-page="compras">📦 Compras</button>
-      <button class="mitem" data-page="clientes">👥 Clientes</button>
-      <button class="mitem" data-page="produtos">🧾 Produtos</button>
-      <button class="mitem" data-page="armazem">🏬 Armazém</button>
-      <button class="mitem" data-page="relatorios">📊 Relatórios</button>
-      <button class="mitem" data-page="fiscal">🧾 Fiscal</button>
-      <button class="mitem" data-page="config">⚙️ Config</button>
-      <button class="mitem" data-page="suporte">🆘 Suporte</button>
-    </nav>
-
-    <div class="sidefoot">
-      <div class="pill" id="syncState">Modo: Offline</div>
-      <div class="pill subtle" id="deviceState">📱/💻 Responsivo</div>
+    <div class="top-actions">
+      <button class="btn ghost" id="btnSync">Sync</button>
+      <button class="btn ghost" id="btnBackup">Backup</button>
+      <button class="btn danger" id="btnLogout">Sair</button>
     </div>
-  </aside>
+  </header>
 
-  <!-- OVERLAY (mobile) -->
-  <div class="overlay" id="overlay"></div>
+  <!-- Auth Screen -->
+  <section class="screen" id="screenAuth">
+    <div class="card auth-card">
+      <h2>Entrar</h2>
 
-  <!-- MAIN -->
-  <main class="main">
-    <!-- TOPBAR -->
-    <header class="topbar">
-      <button class="btn ghost" id="sidebarToggle" type="button" aria-label="Menu">☰</button>
+      <label class="label">ID da Loja (Workspace)</label>
+      <input class="input" id="workspaceId" placeholder="Ex: DCNET-LOJA-FA1Y" />
 
-      <div class="crumb">
-        <h1 id="pageTitle">Home</h1>
-        <p id="pageDesc">Dashboard geral + contas de pagamento</p>
+      <label class="label">Utilizador</label>
+      <select class="input" id="userSelect"></select>
+
+      <label class="label">PIN</label>
+      <input class="input" id="pinInput" type="password" inputmode="numeric" placeholder="••••" />
+
+      <div class="row gap">
+        <button class="btn primary" id="btnLogin">Entrar</button>
+        <button class="btn" id="btnCreateFirstAdmin">Criar Admin</button>
       </div>
 
-      <div class="top-actions">
-        <button class="btn ghost" id="btnSync" type="button">Sincronizar</button>
-        <button class="btn" id="btnQuickSale" type="button">+ Venda</button>
-      </div>
- <div id="workspaceBadge" class="badge"></div>
-      <div class="top-user">
-        <span class="pill subtle" id="userBadge">👤 —</span>
-        <button class="btn ghost" id="btnLogoutTop" type="button">Sair</button>
-      </div>
-    </header>
+      <hr class="sep">
 
-    <!-- HOME -->
-    <section class="page active" id="home">
-      <div class="grid kpis">
-        <div class="card">
-          <div class="label">Vendas hoje</div>
-          <div class="kpi" id="kpiSalesToday">0.00 MT</div>
-          <div class="muted" id="kpiSalesTodayCount">0 vendas</div>
+      <div class="backup-login">
+        <h4>Empresa já existente (Nuvem / Supabase)?</h4>
+        <p class="muted">
+          Se esta loja já existe e tens Supabase configurado, podes carregar os dados da nuvem
+          neste dispositivo antes de entrar.
+        </p>
+
+        <label class="label">Supabase Project URL</label>
+        <input class="input" id="sbUrlLogin" placeholder="https://xxxx.supabase.co" />
+
+        <label class="label">Supabase Anon Key</label>
+        <input class="input" id="sbKeyLogin" placeholder="eyJhbGciOi..." />
+
+        <div class="row gap">
+          <button class="btn ghost full" id="btnLoadFromCloud">Carregar da Nuvem</button>
         </div>
 
-        <div class="card">
-          <div class="label">Compras hoje</div>
-          <div class="kpi" id="kpiBuysToday">0.00 MT</div>
-          <div class="muted" id="kpiBuysTodayCount">0 compras</div>
-        </div>
+        <p class="muted" id="cloudMsg" style="margin-top:8px"></p>
 
-        <div class="card">
-          <div class="label">Lucro hoje (estim.)</div>
-          <div class="kpi" id="kpiProfitToday">0.00 MT</div>
-          <div class="muted">Venda - custo (aquisição)</div>
-        </div>
+        <p class="muted" style="margin-top:6px">
+          ⚠️ Carregar da nuvem substitui os dados atuais deste dispositivo.
+        </p>
       </div>
 
-      <div class="grid two">
-        <div class="card">
-          <div class="row between">
-            <h2>Contas / Formas de pagamento</h2>
-            <!-- o script abre modal via botões dentro da lista; este botão é opcional -->
-            <button class="btn" type="button" data-edit-acc="">+ Nova conta</button>
-          </div>
-          <div id="accountsList" class="list"></div>
-        </div>
+      <p class="muted" id="authMsg"></p>
+    </div>
+  </section>
 
-        <div class="card">
-          <div class="row between">
-            <h2>Alertas de stock</h2>
-            <span class="badge">Stock mínimo</span>
-          </div>
-          <div id="lowStockList" class="list"></div>
-        </div>
-      </div>
+  <!-- Main Layout -->
+  <section class="layout" id="screenMain" style="display:none">
 
-      <div class="card">
-        <div class="row between">
-          <h2>Últimas vendas</h2>
-          <button class="btn ghost" data-nav="vendas" type="button">Ver tudo</button>
-        </div>
-        <div id="lastSales" class="list"></div>
-      </div>
-    </section>
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <button class="nav active" data-view="pos">Vendas</button>
+      <button class="nav" data-view="purchases">Compras</button>
+      <button class="nav" data-view="stock">Stock</button>
+      <button class="nav" data-view="products">Produtos</button>
+      <button class="nav" data-view="clients">Clientes</button>
+      <button class="nav" data-view="accounts">Contas</button>
+      <button class="nav" data-view="reports">Relatórios</button>
+      <button class="nav" data-view="audit">Auditoria</button>
+      <button class="nav" data-view="settings">Config</button>
+    </aside>
 
-    <!-- VENDAS -->
-    <section class="page" id="vendas">
-      <div class="split">
-        <div class="card pane">
-          <div class="row between">
-            <h2>Catálogo</h2>
-            <input class="input" id="catalogSearch" placeholder="Pesquisar produto..." />
-          </div>
-          <div id="catalogList" class="catalog"></div>
-        </div>
+    <!-- Content -->
+    <main class="content">
 
-        <div class="card pane">
-          <div class="row between">
-            <h2>Carrinho</h2>
-            <button class="btn danger" id="btnClearCart" type="button">Limpar</button>
-          </div>
-
-          <div class="form">
-            <div class="field">
-              <label>Cliente</label>
-              <select class="input" id="saleCustomer"></select>
-            </div>
-
-            <div class="field">
-              <label>Conta (pagamento)</label>
-              <select class="input" id="saleAccount"></select>
-            </div>
-
-            <div class="field">
-              <label>Data</label>
-              <input class="input" type="date" id="saleDate" />
-            </div>
-          </div>
-
-          <div id="cartList" class="list"></div>
-
-          <div class="totals">
-            <div class="row between">
-              <span class="muted">Total</span>
-              <strong id="cartTotal">0.00 MT</strong>
-            </div>
-
-            <button class="btn big" id="btnCheckout" type="button">Finalizar venda</button>
-            <small class="muted">Sem desconto nesta versão.</small>
-          </div>
-
-          <hr />
-
-          <h3>Vendas (histórico)</h3>
+      <!-- POS -->
+      <section class="view" id="view-pos" style="display:none">
+        <div class="view-head">
+          <h2>Vendas</h2>
           <div class="row gap">
-            <input class="input" type="date" id="salesFilterDate" />
-            <button class="btn ghost" id="btnClearSalesFilter" type="button">Limpar</button>
+            <input class="input" id="posSearch" placeholder="Pesquisar produto..." />
+            <button class="btn" id="btnNewSale">Nova venda</button>
           </div>
-          <div id="salesList" class="list"></div>
-        </div>
-      </div>
-    </section>
-
-    <!-- COMPRAS -->
-    <section class="page" id="compras">
-      <div class="grid two">
-        <div class="card">
-          <div class="row between">
-            <h2>Registar compra (entra no armazém)</h2>
-          </div>
-
-          <form id="buyForm" class="form2">
-            <div class="field">
-              <label>Fornecedor</label>
-              <input class="input" id="buySupplier" placeholder="Nome do fornecedor" required />
-            </div>
-
-            <div class="field">
-              <label>Produto</label>
-              <select class="input" id="buyProduct"></select>
-            </div>
-
-            <div class="field">
-              <label>Quantidade</label>
-              <input class="input" type="number" min="1" step="1" id="buyQty" value="1" required />
-            </div>
-
-            <div class="field">
-              <label>Preço de aquisição (unit.)</label>
-              <input class="input" type="number" min="0" step="0.01" id="buyCost" required />
-            </div>
-
-            <div class="field">
-              <label>Conta (pagamento)</label>
-              <select class="input" id="buyAccount"></select>
-            </div>
-
-            <div class="field">
-              <label>Data</label>
-              <input class="input" type="date" id="buyDate" />
-            </div>
-
-            <button class="btn big full" type="submit">Salvar compra</button>
-          </form>
         </div>
 
-        <div class="card">
-          <div class="row between">
-            <h2>Compras (histórico)</h2>
-            <span class="badge">Entradas de stock</span>
+        <div class="grid2">
+          <div class="card">
+            <h3>Catálogo</h3>
+            <div id="posCatalog" class="list"></div>
           </div>
 
+          <div class="card">
+            <h3>Carrinho</h3>
+
+            <label class="label">Cliente (opcional)</label>
+            <select class="input" id="posClient"></select>
+
+            <label class="label">Conta de recebimento</label>
+            <select class="input" id="posAccount"></select>
+
+            <div id="posCart" class="list" style="margin-top:10px"></div>
+
+            <div class="row between mt">
+              <div class="big" id="posTotal">0.00 MT</div>
+              <button class="btn primary" id="btnCheckout">Finalizar</button>
+            </div>
+
+            <p class="muted" id="posMsg"></p>
+          </div>
+        </div>
+      </section>
+
+      <!-- Purchases -->
+      <section class="view" id="view-purchases" style="display:none">
+        <div class="view-head">
+          <h2>Compras</h2>
           <div class="row gap">
-            <input class="input" type="date" id="buysFilterDate" />
-            <button class="btn ghost" id="btnClearBuysFilter" type="button">Limpar</button>
+            <button class="btn" id="btnNewPurchase">Nova compra</button>
           </div>
-
-          <div id="buysList" class="list"></div>
-        </div>
-      </div>
-    </section>
-
-    <!-- CLIENTES -->
-    <section class="page" id="clientes">
-      <div class="grid two">
-        <div class="card">
-          <div class="row between">
-            <h2>Cadastrar cliente</h2>
-          </div>
-
-          <form id="customerForm" class="form2">
-            <div class="field">
-              <label>Nome</label>
-              <input class="input" id="custName" required placeholder="Ex: Maria S." />
-            </div>
-
-            <div class="field">
-              <label>Telefone/WhatsApp</label>
-              <input class="input" id="custPhone" placeholder="84xxxxxxx" />
-            </div>
-
-            <div class="field full">
-              <label>Notas (opcional)</label>
-              <input class="input" id="custNotes" placeholder="Ex: prefere M-Pesa" />
-            </div>
-
-            <button class="btn big full" type="submit">Salvar cliente</button>
-          </form>
         </div>
 
-        <div class="card">
-          <div class="row between">
-            <h2>Lista de clientes</h2>
-          </div>
-          <div id="customersList" class="list"></div>
-        </div>
-      </div>
-    </section>
+        <div class="grid2" style="margin-top:12px">
+          <!-- Form compra -->
+          <div class="card">
+            <h3>Registar compra</h3>
 
-    <!-- PRODUTOS -->
-    <section class="page" id="produtos">
-      <div class="grid two">
-        <div class="card">
-          <div class="row between">
-            <h2>Cadastrar produto</h2>
-          </div>
+            <label class="label">Fornecedor</label>
+            <input class="input" id="purSupplier" placeholder="Ex: Vodacom, Fornecedor X" />
 
-          <form id="productForm" class="form2">
-            <div class="field">
-              <label>Nome</label>
-              <input class="input" id="prodName" required placeholder="Ex: Arroz 1kg" />
-            </div>
-
-            <div class="field">
-              <label>Preço de venda</label>
-              <input class="input" type="number" min="0" step="0.01" id="prodPrice" required />
-            </div>
-
-            <div class="field">
-              <label>Preço de aquisição (referência)</label>
-              <input class="input" type="number" min="0" step="0.01" id="prodCost" required />
-            </div>
-
-            <div class="field">
-              <label>Stock mínimo</label>
-              <input class="input" type="number" min="0" step="1" id="prodMinStock" value="0" required />
-            </div>
-
-            <div class="field full">
-              <label>Imagem (URL opcional)</label>
-              <input class="input" id="prodImg" placeholder="https://..." />
-            </div>
-
-            <div class="field full">
-              <label>Descrição</label>
-              <input class="input" id="prodDesc" placeholder="Descrição curta" />
-            </div>
-
-            <!-- PACOTES -->
-            <div class="card inner" style="margin-top:10px">
-              <h3 style="margin:0 0 8px">Pacotes / Consumo de Stock</h3>
-
-              <div class="grid two">
-                <div class="field full">
-                  <label>Este produto consome stock de (opcional)</label>
-                  <select class="input" id="prodStockBase">
-                    <option value="">— Não (produto normal) —</option>
-                  </select>
-                  <small class="muted">Ex.: selecione “GB (Unidade)”</small>
-                </div>
-
-                <div class="field">
-                  <label>Quantidade consumida do stock base</label>
-                  <input class="input" id="prodStockFactor" type="number" min="1" step="1" value="1" />
-                  <small class="muted">Ex.: 10 (para Pacote 10GB)</small>
-                </div>
+            <div class="grid2" style="grid-template-columns:1fr 1fr; gap:10px; margin-top:10px">
+              <div>
+                <label class="label">Data</label>
+                <input class="input" id="purDate" type="date" />
+              </div>
+              <div>
+                <label class="label">Conta de pagamento</label>
+                <select class="input" id="purAccount"></select>
               </div>
             </div>
 
-            <div class="note full" id="profitNote">Lucro esperado: 0.00 MT</div>
-            <button class="btn big full" type="submit">Salvar produto</button>
-          </form>
-        </div>
+            <hr class="sep">
 
-        <div class="card">
-          <div class="row between">
-            <h2>Catálogo (produtos)</h2>
-            <input class="input" id="productSearch" placeholder="Pesquisar..." />
+            <div class="view-head">
+              <h3 style="margin:0">Itens</h3>
+              <button class="btn" id="btnAddPurItem">Adicionar item</button>
+            </div>
+
+            <div class="table" id="purItems"></div>
+
+            <div class="row between mt">
+              <div class="big" id="purTotal">0.00 MT</div>
+              <button class="btn primary" id="btnSavePurchase">Guardar compra</button>
+            </div>
+
+            <p class="muted" id="purMsg"></p>
           </div>
-          <div id="productsList" class="list"></div>
+
+          <!-- Histórico -->
+          <div class="card">
+            <h3>Histórico de compras</h3>
+            <div class="row gap">
+              <input class="input" id="purFrom" type="date" />
+              <input class="input" id="purTo" type="date" />
+              <button class="btn" id="btnFilterPurchases">Filtrar</button>
+            </div>
+            <div class="table" id="purTable"></div>
+            <p class="muted" id="purCount"></p>
+          </div>
         </div>
-      </div>
-    </section>
+      </section>
 
-    <!-- ARMAZÉM -->
-    <section class="page" id="armazem">
-      <div class="card">
-        <div class="row between">
-          <h2>Armazém (stock em tempo real)</h2>
-          <span class="badge">Entradas: compras | Saídas: vendas</span>
+      <!-- Stock -->
+      <section class="view" id="view-stock" style="display:none">
+        <div class="view-head">
+          <h2>Stock</h2>
+          <div class="row gap">
+            <button class="btn" id="tabStockInv">Inventário</button>
+            <button class="btn ghost" id="tabStockSales">Vendas (histórico)</button>
+          </div>
         </div>
-        <div id="warehouseList" class="list"></div>
-      </div>
-    </section>
 
-    <!-- RELATÓRIOS -->
-    <section class="page" id="relatorios">
-      <div class="card">
-        <div class="row between">
-          <h2>Relatórios</h2>
-          <span class="badge">V1: base</span>
-        </div>
-        <p class="muted">A área dos 12 relatórios será criada automaticamente pelo script.</p>
-        <!-- (não precisa de mais nada aqui) -->
-      </div>
-    </section>
+        <div class="grid2" style="margin-top:12px">
+          <!-- INVENTÁRIO -->
+          <div class="card" id="panelInv">
+            <h3>Ajuste de Inventário</h3>
 
-    <!-- FISCAL -->
-    <section class="page" id="fiscal">
-      <div class="card">
-        <h2>Fiscal</h2>
-        <p class="muted">Página em desenvolvimento.</p>
-      </div>
-    </section>
+            <label class="label">Produto</label>
+            <select class="input" id="invProduct"></select>
 
-    <!-- CONFIG -->
-    <section class="page" id="config">
-      <div class="card">
-        <h2>Config</h2>
+            <label class="label">Tipo</label>
+            <select class="input" id="invType">
+              <option value="in">Entrada</option>
+              <option value="out">Saída</option>
+              <option value="adjust">Definir stock exato</option>
+            </select>
 
-        <div class="grid two">
-          <div class="card inner">
-            <h3>Offline / Backup</h3>
+            <div class="grid2" style="grid-template-columns:1fr 1fr; gap:10px; margin-top:10px">
+              <div>
+                <label class="label">Quantidade</label>
+                <input class="input" id="invQty" inputmode="numeric" placeholder="Ex: 10" />
+              </div>
+              <div>
+                <label class="label">Novo stock (se 'Definir')</label>
+                <input class="input" id="invNewStock" inputmode="numeric" placeholder="Ex: 150" />
+              </div>
+            </div>
+
+            <label class="label">Nota</label>
+            <input class="input" id="invNote" placeholder="Opcional (ex: quebra, ajuste, contagem)" />
+
+            <div class="row gap mt">
+              <button class="btn primary full" id="btnSaveInv">Guardar ajuste</button>
+            </div>
+
+            <p class="muted" id="invMsg"></p>
+
+            <hr class="sep">
+            <h3>Histórico de Inventário</h3>
+            <div class="row gap">
+              <input class="input" id="invFrom" type="date" />
+              <input class="input" id="invTo" type="date" />
+              <button class="btn" id="btnInvFilter">Filtrar</button>
+            </div>
+            <div class="table" id="invTable"></div>
+            <p class="muted" id="invCount"></p>
+          </div>
+
+          <!-- SALES (HISTÓRICO) -->
+          <div class="card" id="panelSales" style="display:none">
+            <h3>Vendas (Histórico)</h3>
 
             <div class="row gap">
-              <button class="btn ghost" id="btnExport" type="button">Exportar backup (JSON)</button>
-
-              <label class="btn ghost" for="importFile" style="cursor:pointer;">Importar</label>
-              <input id="importFile" type="file" accept="application/json" style="display:none;" />
+              <input class="input" id="salesFrom" type="date" />
+              <input class="input" id="salesTo" type="date" />
             </div>
 
-            <div class="row gap" style="margin-top:10px;">
-              <button class="btn danger" id="btnReset" type="button">Apagar tudo</button>
+            <div class="row gap mt">
+              <select class="input" id="salesClientFilter"></select>
+              <select class="input" id="salesAccountFilter"></select>
+              <select class="input" id="salesStatusFilter">
+                <option value="">Todas</option>
+                <option value="ok">OK</option>
+                <option value="cancelled">Canceladas</option>
+              </select>
+              <button class="btn" id="btnApplySalesFilters">Filtrar</button>
             </div>
+
+            <div class="table" id="salesTable"></div>
+            <p class="muted" id="salesCount"></p>
           </div>
+        </div>
+      </section>
 
-          <div class="card inner">
-            <h3>Online (Supabase)</h3>
-            <p class="muted">Cole aqui as chaves para sincronizar.</p>
-
-            <div class="form2">
-              <div class="field full">
-                <label>SUPABASE_URL</label>
-                <input class="input" id="sbUrl" placeholder="https://xxxx.supabase.co" />
-              </div>
-
-              <div class="field full">
-                <label>SUPABASE_ANON_KEY</label>
-                <input class="input" id="sbKey" placeholder="eyJ..." />
-              </div>
-
-              <button class="btn big full" id="btnSaveOnline" type="button">Guardar e ativar online</button>
-            </div>
-
-            <!-- o script usa este status -->
-            <p class="muted" id="autoBackupStatus" style="margin-top:10px">Auto-backup…</p>
-
-            <div class="grid two" style="margin-top:10px">
-              <div class="field">
-                <label>Intervalo (minutos)</label>
-                <input class="input" id="autoBackupMinutes" type="number" min="5" step="1" />
-              </div>
-
-              <div class="field">
-                <label>Recuperação</label>
-                <button class="btn ghost full" id="btnRestoreAutoSnapshot" type="button">
-                  Restaurar último snapshot
-                </button>
-              </div>
-            </div>
+      <!-- Products -->
+      <section class="view" id="view-products" style="display:none">
+        <div class="view-head">
+          <h2>Produtos</h2>
+          <div class="row gap">
+            <input class="input" id="prodSearch" placeholder="Pesquisar..." />
+            <button class="btn" id="btnNewProduct">Novo</button>
           </div>
         </div>
 
-        <!-- UTILIZADORES (apenas Admin) -->
-        <div class="card inner" id="usersCard" style="display:none;">
-          <div class="row between">
-            <h3>Utilizadores</h3>
+        <div class="grid2" style="margin-top:12px">
+          <!-- Form -->
+          <div class="card">
+            <h3 id="prodFormTitle">Novo Produto</h3>
+
+            <label class="label">Nome</label>
+            <input class="input" id="prodName" placeholder="Ex: Pacote 10GB" />
+
+            <div class="grid2" style="grid-template-columns:1fr 1fr; gap:10px; margin-top:10px">
+              <div>
+                <label class="label">Preço de venda (MT)</label>
+                <input class="input" id="prodPrice" inputmode="decimal" placeholder="Ex: 180" />
+              </div>
+              <div>
+                <label class="label">Custo (MT)</label>
+                <input class="input" id="prodCost" inputmode="decimal" placeholder="Ex: 130" />
+              </div>
+            </div>
+
+            <div class="grid2" style="grid-template-columns:1fr 1fr; gap:10px; margin-top:10px">
+              <div>
+                <label class="label">Stock atual</label>
+                <input class="input" id="prodStock" inputmode="numeric" placeholder="Ex: 100" />
+              </div>
+              <div>
+                <label class="label">Stock mínimo</label>
+                <input class="input" id="prodStockMin" inputmode="numeric" placeholder="Ex: 10" />
+              </div>
+            </div>
+
+            <label class="label">Descrição</label>
+            <input class="input" id="prodDesc" placeholder="Opcional" />
+
+            <hr class="sep">
+
+            <h4 style="margin:0 0 6px">Pacotes / Stock Base</h4>
+            <p class="muted" style="margin:0 0 10px">
+              Se este produto consome stock de outro produto (ex.: GB Base), selecione abaixo.
+            </p>
+
+            <label class="label">Stock Base (opcional)</label>
+            <select class="input" id="prodStockBase"></select>
+
+            <label class="label">Fator (quantas unidades do base consome)</label>
+            <input class="input" id="prodStockFactor" inputmode="decimal" placeholder="Ex: 10 (Pacote 10GB)" />
+
+            <div class="row gap mt">
+              <button class="btn primary full" id="btnSaveProduct">Guardar</button>
+              <button class="btn ghost full" id="btnCancelEdit" style="display:none">Cancelar</button>
+            </div>
+
+            <p class="muted" id="prodMsg"></p>
           </div>
-<button class="btn" id="btnAddUser" type="button">+ Novo utilizador</button>
 
-          <p class="muted" style="margin-top:6px">
-            Apenas Admin pode criar/editar utilizadores. Gestão/Caixa entram com PIN.
-          </p>
-
-          <div id="usersList" class="list"></div>
+          <!-- List -->
+          <div class="card">
+            <h3>Lista</h3>
+            <div class="table" id="prodTable"></div>
+            <p class="muted" id="prodCount"></p>
+          </div>
         </div>
-      </div>
-    </section>
+      </section>
 
-    <!-- SUPORTE -->
-    <section class="page" id="suporte">
-      <div class="card">
-        <h2>Suporte</h2>
-
-        <div class="grid two">
-          <div class="card inner">
-            <h3>FAQ</h3>
-            <ul class="muted">
-              <li>Vendas → adicionar no carrinho → finalizar.</li>
-              <li>Compras → salvar compra (entra no armazém).</li>
-              <li>Home → editar/apagar contas (formas de pagamento).</li>
-            </ul>
-          </div>
-
-          <div class="card inner">
-            <h3>Reportar problema</h3>
-            <textarea class="input" id="issueText" rows="5" placeholder="Descreva o problema..."></textarea>
-            <button class="btn big" id="btnSendIssue" type="button">Enviar</button>
-            <div class="muted" id="issueSent" style="margin-top:10px;"></div>
+      <!-- Clients -->
+      <section class="view" id="view-clients" style="display:none">
+        <div class="view-head">
+          <h2>Clientes</h2>
+          <div class="row gap">
+            <input class="input" id="cliSearch" placeholder="Pesquisar nome/telefone..." />
+            <button class="btn" id="btnNewClient">Novo</button>
           </div>
         </div>
-      </div>
-    </section>
-  </main>
+
+        <div class="grid2" style="margin-top:12px">
+          <!-- Form -->
+          <div class="card">
+            <h3 id="cliFormTitle">Novo Cliente</h3>
+
+            <label class="label">Nome</label>
+            <input class="input" id="cliName" placeholder="Ex: Maria Joana" />
+
+            <label class="label">Telefone / WhatsApp</label>
+            <input class="input" id="cliPhone" placeholder="Ex: 84xxxxxxx" />
+
+            <label class="label">Notas</label>
+            <input class="input" id="cliNotes" placeholder="Opcional" />
+
+            <div class="row gap mt">
+              <button class="btn primary full" id="btnSaveClient">Guardar</button>
+              <button class="btn ghost full" id="btnCancelClientEdit" style="display:none">Cancelar</button>
+            </div>
+
+            <p class="muted" id="cliMsg"></p>
+          </div>
+
+          <!-- List + histórico -->
+          <div class="card">
+            <h3>Lista</h3>
+            <div class="table" id="cliTable"></div>
+            <p class="muted" id="cliCount"></p>
+
+            <hr class="sep">
+            <h3>Histórico do Cliente</h3>
+            <div class="muted" id="cliHistoryHint">Selecione um cliente para ver as vendas.</div>
+            <div class="table" id="cliHistory"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Accounts -->
+      <section class="view" id="view-accounts" style="display:none">
+        <div class="view-head">
+          <h2>Contas & Ledger</h2>
+          <div class="row gap">
+            <button class="btn" id="btnNewAccount">Nova Conta</button>
+            <button class="btn ghost" id="btnRefreshLedger">Atualizar Ledger</button>
+          </div>
+        </div>
+
+        <div class="grid2" style="margin-top:12px">
+          <!-- Contas -->
+          <div class="card">
+            <h3 id="accFormTitle">Nova Conta</h3>
+
+            <label class="label">Nome da conta</label>
+            <input class="input" id="accName" placeholder="Ex: M-Pesa, e-Mola, Caixa, Banco" />
+
+            <label class="label">Saldo inicial (MT)</label>
+            <input class="input" id="accBalance" inputmode="decimal" placeholder="Ex: 0" />
+
+            <div class="row gap mt">
+              <button class="btn primary full" id="btnSaveAccount">Guardar</button>
+              <button class="btn ghost full" id="btnCancelAccEdit" style="display:none">Cancelar</button>
+            </div>
+
+            <p class="muted" id="accMsg"></p>
+
+            <hr class="sep">
+            <h3>Lista de Contas</h3>
+            <div class="table" id="accTable"></div>
+            <p class="muted" id="accCount"></p>
+          </div>
+
+          <!-- Ledger -->
+          <div class="card">
+            <div class="view-head">
+              <h3 style="margin:0">Ledger (Movimentos)</h3>
+              <div class="row gap">
+                <input class="input" id="ledgFrom" type="date" />
+                <input class="input" id="ledgTo" type="date" />
+              </div>
+            </div>
+
+            <div class="row gap mt">
+              <select class="input" id="ledgAccountFilter"></select>
+              <select class="input" id="ledgTypeFilter">
+                <option value="">Todos</option>
+                <option value="in">Entradas</option>
+                <option value="out">Saídas</option>
+              </select>
+              <button class="btn" id="btnApplyLedgerFilters">Filtrar</button>
+            </div>
+
+            <div class="table" id="ledgerTable"></div>
+            <p class="muted" id="ledgerCount"></p>
+          </div>
+        </div>
+      </section>
+
+      <!-- Reports -->
+      <section class="view" id="view-reports" style="display:none">
+        <h2>Relatórios</h2>
+        <div class="card">Em construção</div>
+      </section>
+
+      <!-- Audit -->
+      <section class="view" id="view-audit" style="display:none">
+        <div class="view-head">
+          <h2>Auditoria</h2>
+          <button class="btn" id="btnAuditRefresh">Atualizar</button>
+        </div>
+
+        <div class="card" style="margin-top:12px">
+          <div class="grid2" style="grid-template-columns:1fr 1fr; gap:10px">
+            <div>
+              <label class="label">De</label>
+              <input class="input" id="auditFrom" type="date" />
+            </div>
+            <div>
+              <label class="label">Até</label>
+              <input class="input" id="auditTo" type="date" />
+            </div>
+          </div>
+
+          <label class="label" style="margin-top:10px">Ação contém</label>
+          <input class="input" id="auditAction" placeholder="Ex: sale., inventory., auth." />
+
+          <label class="label" style="margin-top:10px">Utilizador contém</label>
+          <input class="input" id="auditUser" placeholder="Ex: Admin, Caixa" />
+
+          <div class="row gap mt">
+            <button class="btn" id="btnAuditFilter">Filtrar</button>
+            <span class="muted" id="auditMsg"></span>
+          </div>
+
+          <div class="table" id="auditTable" style="margin-top:12px"></div>
+          <p class="muted" id="auditCount"></p>
+        </div>
+      </section>
+
+      <!-- Settings -->
+      <section class="view" id="view-settings" style="display:none">
+        <div class="view-head">
+          <h2>Config</h2>
+        </div>
+
+        <div class="card" style="margin-top:12px">
+          <h3>Supabase (opcional)</h3>
+
+          <label class="label">Project URL</label>
+          <input class="input" id="sbUrl" placeholder="https://xxxx.supabase.co" />
+
+          <label class="label" style="margin-top:10px">Anon Key</label>
+          <input class="input" id="sbKey" placeholder="eyJhbGciOi..." />
+
+          <div class="row gap mt">
+            <button class="btn" id="btnSaveOnline">Guardar config</button>
+            <button class="btn ghost" id="btnDisableOnline">Desativar</button>
+            <button class="btn" id="btnBackupNow">Backup agora</button>
+          </div>
+
+          <p class="muted" id="sbMsg" style="margin-top:8px"></p>
+
+          <hr class="sep" />
+
+          <h3>Backups automáticos</h3>
+
+          <div class="row between" style="align-items:center">
+            <div>
+              <div><b>Auto snapshots</b></div>
+              <div class="muted">Faz backups automaticamente (sem travar o app).</div>
+            </div>
+            <label class="row gap" style="align-items:center">
+              <input type="checkbox" id="autoSnapshotsToggle" />
+              <span class="muted">Ativo</span>
+            </label>
+          </div>
+
+          <label class="label" style="margin-top:10px">Retenção (quantos snapshots manter)</label>
+          <input class="input" id="snapshotRetention" inputmode="numeric" placeholder="Ex: 30" />
+
+          <div class="row gap mt">
+            <button class="btn" id="btnSaveSettings">Guardar settings</button>
+            <span class="muted" id="settingsMsg"></span>
+          </div>
+
+          <hr class="sep" />
+
+          <h3>Export / Import</h3>
+          <div class="row gap">
+            <button class="btn" id="btnExportJSON">Exportar JSON</button>
+            <input class="input" id="fileImportJSON" type="file" accept="application/json" />
+            <button class="btn" id="btnImportJSON">Importar JSON</button>
+          </div>
+          <p class="muted" id="jsonMsg" style="margin-top:8px"></p>
+        </div>
+      </section>
+
+    </main>
+  </section>
 </div>
-
-<!-- MODAL (tem que iniciar escondido, senão bloqueia o clique no ecrã) -->
-<div class="modal" id="modal" style="display:none">
-  <div class="modal-card">
-    <div class="row between">
-      <h3 id="modalTitle">Modal</h3>
-      <button class="btn ghost" id="modalClose" type="button">Fechar</button>
-    </div>
-    <div id="modalBody"></div>
-  </div>
-</div>
-<script src="./script.js?v=109" defer></script>
+    <script  src="./script.js"></script>
 
   </body>
   
