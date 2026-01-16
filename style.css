@@ -336,3 +336,67 @@ body{
     line-height:1.2;
   }
 }
+/* =========================
+   MOBILE: Carrinho fixo em baixo (POS)
+========================= */
+.mcartbar{
+  display:none;
+}
+
+@media (max-width: 900px){
+  /* dá espaço para a barra fixa */
+  #view-pos{
+    padding-bottom: 92px; /* ajusta se precisares */
+  }
+
+  .mcartbar{
+    display:block;
+    position:fixed;
+    left:0;
+    right:0;
+    bottom:0;
+    z-index: 999;
+    padding: 10px 12px;
+    background: rgba(11,18,32,.92);
+    border-top: 1px solid var(--line);
+    backdrop-filter: blur(10px);
+    padding-bottom: calc(10px + env(safe-area-inset-bottom));
+  }
+
+  .mcartbar-inner{
+    display:flex;
+    gap:10px;
+    align-items:center;
+  }
+
+  .mcartbar-total{
+    flex:1;
+    text-align:right;
+    font-weight:900;
+  }
+
+  /* o carrinho vira "drawer" em baixo */
+  #posCartCard{
+    position: fixed;
+    left: 12px;
+    right: 12px;
+    bottom: calc(70px + env(safe-area-inset-bottom)); /* acima da barra */
+    z-index: 1000;
+
+    max-height: 62vh;
+    overflow: auto;
+
+    transform: translateY(120%);
+    transition: transform .18s ease;
+    box-shadow: 0 20px 60px rgba(0,0,0,.45);
+  }
+
+  #posCartCard.open{
+    transform: translateY(0);
+  }
+
+  /* no mobile, o grid vira 1 coluna e o catálogo ocupa o ecrã */
+  #view-pos .grid2{
+    grid-template-columns: 1fr;
+  }
+}

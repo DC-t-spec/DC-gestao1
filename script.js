@@ -3,6 +3,8 @@ alert("JS carregado ✅ Gestão Fácil - V1 (BASE + Sales + Inventory + Audit + 
 (() => {
   "use strict";
 
+
+
   /***********************
    * Offline-first (localStorage)
    * Workspace + Login (PIN)
@@ -40,6 +42,16 @@ alert("JS carregado ✅ Gestão Fácil - V1 (BASE + Sales + Inventory + Audit + 
   const save = (k, v) => localStorage.setItem(k, JSON.stringify(v));
 
   const el = id => document.getElementById(id);
+  // ===== Auditoria UI =====
+  const auditFrom = el("auditFrom");
+  const auditTo = el("auditTo");
+  const auditAction = el("auditAction");
+  const auditUser = el("auditUser");
+  const btnAuditFilter = el("btnAuditFilter");
+  const btnAuditRefresh = el("btnAuditRefresh");
+  const auditTable = el("auditTable");
+  const auditCount = el("auditCount");
+  const auditMsg = el("auditMsg");
 
   function nnum(v, def = 0) {
     const x = Number(String(v !== null && v !== void 0 ? v : "").replace(",", "."));
@@ -360,6 +372,7 @@ alert("JS carregado ✅ Gestão Fácil - V1 (BASE + Sales + Inventory + Audit + 
       if (viewKey === "stock") renderStockView();
       if (viewKey === "audit") renderAudit();
       if (viewKey === "settings") renderSettings();
+
     } catch (e) {
       console.error(e);
       alert(e.message || e);
@@ -1354,10 +1367,51 @@ alert("JS carregado ✅ Gestão Fácil - V1 (BASE + Sales + Inventory + Audit + 
   const posCart = el("posCart");
   const posTotal = el("posTotal");
   const btnCheckout = el("btnCheckout");
+  // Mobile cart UI
+  const mcartbar = el("mcartbar");
+  const mcartTotal = el("mcartTotal");
+  const btnOpenCart = el("btnOpenCart");
+  const btnCheckoutMobile = el("btnCheckoutMobile");
+  const posCartCard = el("posCartCard");
+
 
   const posClient = el("posClient");
   const posAccount = el("posAccount");
   const posMsg = el("posMsg");
+  function isMobile() {
+    return window.matchMedia && window.matchMedia("(max-width: 900px)").matches;
+  }
+
+  function setCartDrawer(open) {
+    if (!posCartCard) return;
+    if (open) posCartCard.classList.add("open");else
+    posCartCard.classList.remove("open");
+  }
+
+  if (btnOpenCart) {
+    btnOpenCart.onclick = () => {
+      // toggle drawer
+      if (!posCartCard) return;
+      const open = !posCartCard.classList.contains("open");
+      setCartDrawer(open);
+    };
+  }
+
+  // fechar drawer ao clicar fora (opcional e seguro)
+  document.addEventListener("click", e => {
+    if (!isMobile()) return;
+    if (!posCartCard) return;
+    if (!posCartCard.classList.contains("open")) return;
+    const t = e.target;
+    const clickedInside = posCartCard.contains(t) || mcartbar && mcartbar.contains(t);
+    if (!clickedInside) setCartDrawer(false);
+  });
+
+  // botão finalizar do mobile usa o mesmo checkout
+  if (btnCheckoutMobile && btnCheckout) {
+    btnCheckoutMobile.onclick = () => btnCheckout.click();
+  }
+
 
   function setPosMsg(m) {if (posMsg) posMsg.textContent = m || "";}
 
@@ -1457,6 +1511,10 @@ alert("JS carregado ✅ Gestão Fácil - V1 (BASE + Sales + Inventory + Audit + 
     });
 
     if (posTotal) posTotal.textContent = MT(total);
+    // atualiza barra mobile
+    if (mcartTotal) mcartTotal.textContent = MT(total);
+    if (mcartbar) mcartbar.style.display = isMobile() ? "block" : "none";
+
   }
 
   function validateAndApplyStockForSale(enrichedItems) {
@@ -1569,6 +1627,8 @@ alert("JS carregado ✅ Gestão Fácil - V1 (BASE + Sales + Inventory + Audit + 
         renderLedger();
         renderSales();
         fillInvProducts();
+        setCartDrawer(false);
+
 
         if (selectedClientId) renderClientHistory(selectedClientId);
 
@@ -2257,21 +2317,12 @@ alert("JS carregado ✅ Gestão Fácil - V1 (BASE + Sales + Inventory + Audit + 
   }
 
   /* =======================
-     Audit view (render + filtros)
+   Audit view (render + filtros)
   ======================= */
-  const btnAuditRefresh = el("btnAuditRefresh");
-  const auditFrom = el("auditFrom");
-  const auditTo = el("auditTo");
-  const auditAction = el("auditAction");
-  const auditUser = el("auditUser");
-  const btnAuditFilter = el("btnAuditFilter");
-  const auditMsg = el("auditMsg");
-  const auditTable = el("auditTable");
-  const auditCount = el("auditCount");
-
   function setAuditMsg(m) {if (auditMsg) auditMsg.textContent = m || "";}
 
   function renderAudit() {
+    if (!db || !db.audit) return;
     if (!auditTable) return;
 
     const from = auditFrom ? auditFrom.value : "";
@@ -2291,15 +2342,16 @@ alert("JS carregado ✅ Gestão Fácil - V1 (BASE + Sales + Inventory + Audit + 
     rows.forEach(r => {
       const row = document.createElement("div");
       row.className = "rowitem ledger";
+      const metaStr = r.meta ? JSON.stringify(r.meta) : "";
       row.innerHTML = `
-        <div>
-          <div><b>${(r.ts || "").slice(0, 19).replace("T", " ")}</b> <span class="badge">${r.role || "—"}</span></div>
-          <div class="muted">${r.actorName || r.actorId || "—"} • ${r.action || ""}</div>
-        </div>
-        <div class="mono">${r.entityType || "—"}</div>
-        <div class="muted">${r.entityId ? String(r.entityId).slice(0, 10) : "—"}</div>
-        <div class="muted">${r.meta ? JSON.stringify(r.meta).slice(0, 40) + (JSON.stringify(r.meta).length > 40 ? "…" : "") : "—"}</div>
-      `;
+      <div>
+        <div><b>${(r.ts || "").slice(0, 19).replace("T", " ")}</b> <span class="badge">${r.role || "—"}</span></div>
+        <div class="muted">${r.actorName || r.actorId || "—"} • ${r.action || ""}</div>
+      </div>
+      <div class="mono">${r.entityType || "—"}</div>
+      <div class="muted">${r.entityId ? String(r.entityId).slice(0, 10) : "—"}</div>
+      <div class="muted">${metaStr ? metaStr.slice(0, 40) + (metaStr.length > 40 ? "…" : "") : "—"}</div>
+    `;
       auditTable.appendChild(row);
     });
 
