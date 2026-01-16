@@ -95,6 +95,31 @@
 
     <!-- Content -->
     <main class="content">
+      <!-- Mobile Bottom Nav -->
+<nav class="mnav" id="mnav">
+  <button class="mnav-btn active" data-view="pos">Vendas</button>
+  <button class="mnav-btn" data-view="purchases">Compras</button>
+  <button class="mnav-btn" data-view="stock">Stock</button>
+  <button class="mnav-btn" data-view="products">Produtos</button>
+  <button class="mnav-btn" data-view="accounts">Contas</button>
+  <button class="mnav-btn" id="btnMore">Mais</button>
+</nav>
+
+<!-- Mobile “Mais” Sheet -->
+<div class="sheet" id="moreSheet" style="display:none">
+  <div class="sheet-card">
+    <div class="sheet-head">
+      <b>Mais</b>
+      <button class="btn ghost" id="btnCloseMore">Fechar</button>
+    </div>
+
+    <button class="sheet-item" data-view="clients">Clientes</button>
+    <button class="sheet-item" data-view="reports">Relatórios</button>
+    <button class="sheet-item" data-view="audit">Auditoria</button>
+    <button class="sheet-item" data-view="settings">Config</button>
+  </div>
+</div>
+
 
       <!-- POS -->
       <section class="view" id="view-pos" style="display:none">
@@ -112,7 +137,7 @@
             <div id="posCatalog" class="list"></div>
           </div>
 
-          <div class="card">
+    <div class="card" id="posCartCard">
             <h3>Carrinho</h3>
 
             <label class="label">Cliente (opcional)</label>

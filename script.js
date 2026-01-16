@@ -375,6 +375,40 @@ alert("JS carregado ✅ Gestão Fácil - V1 (BASE + Sales + Inventory + Audit + 
         openView(navs[i].dataset.view);
       };
     }
+    // ===== Mobile bottom nav =====
+    const mnav = document.getElementById("mnav");
+    if (mnav) {
+      const btns = mnav.querySelectorAll(".mnav-btn[data-view]");
+      btns.forEach(b => {
+        b.onclick = () => {
+          btns.forEach(x => x.classList.remove("active"));
+          b.classList.add("active");
+          openView(b.dataset.view);
+        };
+      });
+    }
+
+    // ===== Sheet “Mais” =====
+    const btnMore = document.getElementById("btnMore");
+    const moreSheet = document.getElementById("moreSheet");
+    const btnCloseMore = document.getElementById("btnCloseMore");
+
+    if (btnMore && moreSheet) btnMore.onclick = () => moreSheet.style.display = "block";
+    if (btnCloseMore && moreSheet) btnCloseMore.onclick = () => moreSheet.style.display = "none";
+
+    if (moreSheet) {
+      moreSheet.addEventListener("click", e => {
+        if (e.target === moreSheet) moreSheet.style.display = "none";
+      });
+
+      moreSheet.querySelectorAll(".sheet-item[data-view]").forEach(b => {
+        b.onclick = () => {
+          moreSheet.style.display = "none";
+          openView(b.dataset.view);
+        };
+      });
+    }
+
   }
 
   /* =======================

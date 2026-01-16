@@ -130,6 +130,30 @@ body{
   margin:18px 0;
   opacity:.6;
 }
+/* ===== Mobile POS: carrinho fixo em baixo ===== */
+@media (max-width: 900px){
+  #posCartCard{
+    position: fixed;
+    left: 10px;
+    right: 10px;
+    bottom: 96px; /* espaço para navegação inferior */
+    z-index: 998;
+
+    border-radius: 18px;
+    padding: 12px;
+  }
+
+  #posCart{
+    max-height: 22vh;
+    overflow-y: auto;
+  }
+
+  /* evita que o catálogo fique escondido atrás do carrinho */
+  #view-pos{
+    padding-bottom: 240px;
+  }
+}
+
 
 .backup-login{
   margin-top:10px;
@@ -210,4 +234,105 @@ body{
 }
 .view.show{
   display:block;
+}
+/* ===== Mobile-first APP feel ===== */
+.mnav{display:none;}
+.sheet{display:none;}
+
+@media (max-width: 900px){
+  /* some a sidebar (não queremos desktop adaptado) */
+  .sidebar{display:none !important;}
+  .layout{grid-template-columns:1fr;}
+  .content{padding:12px; padding-bottom:86px;} /* espaço para bottom nav */
+
+  /* topbar mais compacta */
+  .topbar{padding:10px 12px;}
+  .logo{width:36px;height:36px;border-radius:12px;}
+  .top-actions .btn{padding:8px 10px;}
+  .title{font-size:14px;}
+  .subtitle{font-size:11px;}
+
+  /* bottom nav */
+  .mnav{
+    display:grid;
+    grid-template-columns:repeat(6, 1fr);
+    gap:8px;
+    position:fixed;
+    left:10px; right:10px; bottom:10px;
+    padding:10px;
+    border-radius:18px;
+    border:1px solid var(--line);
+    background:rgba(16,26,46,.92);
+    backdrop-filter: blur(10px);
+    z-index:999;
+    box-shadow:0 20px 60px rgba(0,0,0,.45);
+  }
+  .mnav-btn{
+    border:1px solid transparent;
+    background:transparent;
+    color:var(--text);
+    padding:10px 6px;
+    border-radius:14px;
+    cursor:pointer;
+    font-size:12px;
+  }
+  .mnav-btn.active{
+    border-color:#2b3a5f;
+    background:rgba(56,189,248,.12);
+  }
+
+  /* sheet (Mais) */
+  .sheet{
+    display:block;
+    position:fixed;
+    inset:0;
+    background:rgba(0,0,0,.35);
+    z-index:1000;
+    padding:14px;
+  }
+  .sheet-card{
+    position:absolute;
+    left:14px; right:14px; bottom:14px;
+    border:1px solid var(--line);
+    background:rgba(16,26,46,.96);
+    border-radius:18px;
+    padding:12px;
+    box-shadow:0 20px 60px rgba(0,0,0,.45);
+  }
+  .sheet-head{display:flex; justify-content:space-between; align-items:center; margin-bottom:10px}
+  .sheet-item{
+    width:100%;
+    text-align:left;
+    padding:12px;
+    border-radius:14px;
+    border:1px solid var(--line);
+    background:rgba(148,163,184,.06);
+    color:var(--text);
+    cursor:pointer;
+    margin-bottom:8px;
+  }
+
+  /* grids viram 1 coluna (cara de app) */
+  .grid2{grid-template-columns:1fr !important;}
+  .rowitem{
+    grid-template-columns:1fr auto !important;
+    gap:10px;
+  }
+  .rowitem .actions{justify-content:flex-end;}
+  .rowitem.small{grid-template-columns:1fr auto !important;}
+  .rowitem.ledger{grid-template-columns:1fr auto !important;}
+
+  /* POS: catálogo em cards */
+  #posCatalog{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:10px;
+  }
+  #posCatalog .btn{
+    padding:12px;
+    border-radius:16px;
+    text-align:left;
+    white-space:normal;
+    line-height:1.2;
+  }
 }
