@@ -1,8 +1,10 @@
+// sw.js (compatível com GitHub Pages + teu sistema atual)
 const CACHE_VERSION = "gf-v1.0.9"; // MUDA este valor sempre que fizeres update
 
 const APP_SHELL = [
   "./",
   "./index.html",
+  "./style.css",
   "./script.js",
   "./manifest.webmanifest",
   "./icons/icon-192.png",
@@ -11,7 +13,8 @@ const APP_SHELL = [
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
-    caches.open(CACHE_VERSION)
+    caches
+      .open(CACHE_VERSION)
       .then((cache) => cache.addAll(APP_SHELL))
       .then(() => self.skipWaiting())
   );
@@ -19,22 +22,36 @@ self.addEventListener("install", (event) => {
 
 self.addEventListener("activate", (event) => {
   event.waitUntil(
-    caches.keys().then((keys) =>
-      Promise.all(keys.map((k) => (k !== CACHE_VERSION ? caches.delete(k) : null)))
-    ).then(() => self.clients.claim())
+    caches
+      .keys()
+      .then((keys) =>
+        Promise.all(keys.map((k) => (k !== CACHE_VERSION ? caches.delete(k) : null)))
+      )
+      .then(() => self.clients.claim())
   );
 });
 
 self.addEventListener("fetch", (event) => {
   const req = event.request;
+
+  // só GET (evita interferir com requests especiais)
+  if (req.method !== "GET") return;
+
   const url = new URL(req.url);
 
+  // só cacheia o que é do teu domínio (não mexe no Supabase)
   if (url.origin !== self.location.origin) return;
 
-  const isHTML = req.mode === "navigate" || url.pathname.endsWith("/index.html") || url.pathname === "/" || url.pathname.endsWith("/");
-  const isJS = url.pathname.endsWith("/script.js");
+  const path = url.pathname;
 
-  // ✅ NETWORK-FIRST para HTML e JS (para nunca ficar preso em versão velha)
+  const isHTML =
+    req.mode === "navigate" ||
+    path.endsWith("/index.html") ||
+    path.endsWith("/");
+
+  const isJS = path.endsWith("/script.js");
+
+  // ✅ NETWORK-FIRST para HTML e JS (evita ficar preso em versão velha)
   if (isHTML || isJS) {
     event.respondWith(
       fetch(req)
@@ -48,10 +65,11 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // ✅ CACHE-FIRST para o resto
+  // ✅ CACHE-FIRST para o resto (css, icons, etc.)
   event.respondWith(
     caches.match(req).then((cached) => {
       if (cached) return cached;
+
       return fetch(req).then((res) => {
         const copy = res.clone();
         caches.open(CACHE_VERSION).then((cache) => cache.put(req, copy));
