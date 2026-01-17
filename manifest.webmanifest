@@ -1,14 +1,26 @@
 {
   "name": "Gestão Fácil",
   "short_name": "GestãoFácil",
+  "id": "./",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
   "background_color": "#0b1020",
   "theme_color": "#0b1020",
   "description": "Sistema de gestão offline-first com sincronização opcional.",
+  "orientation": "portrait",
   "icons": [
-    { "src": "./icons/icon-192.png.png", "sizes": "192x192", "type": "image/png" },
-    { "src": "./icons/icon-512.png.png", "sizes": "512x512", "type": "image/png" }
+    {
+      "src": "./icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "./icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
   ]
 }
