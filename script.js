@@ -4,7 +4,6 @@ alert("JS carregado ✅ Gestão Fácil - V1 (BASE + Sales + Inventory + Audit + 
   "use strict";
 
 
-
   /***********************
    * Offline-first (localStorage)
    * Workspace + Login (PIN)
@@ -15,11 +14,20 @@ alert("JS carregado ✅ Gestão Fácil - V1 (BASE + Sales + Inventory + Audit + 
    * Auditoria append-only
    * Supabase snapshots (restore + manual backup + auto)
    * Export/Import JSON
-   ***********************/
+   ***********************/var _db$online11, _db$settings6;
+
+  function escapeHTML(s) {
+    return String(s !== null && s !== void 0 ? s : "").
+    replace(/&/g, "&amp;").
+    replace(/</g, "&lt;").
+    replace(/>/g, "&gt;").
+    replace(/"/g, "&quot;").
+    replace(/'/g, "&#39;");
+  }
 
   /* =======================
      Keys + Utils
-  ======================= */var _db$online10, _db$settings5;
+  ======================= */
   const WS_KEY = "gf_ws";
   const DB_KEY = "gf_db";
   const SESSION_KEY = "gf_session";
@@ -57,6 +65,9 @@ alert("JS carregado ✅ Gestão Fácil - V1 (BASE + Sales + Inventory + Audit + 
     const x = Number(String(v !== null && v !== void 0 ? v : "").replace(",", "."));
     return Number.isFinite(x) ? x : def;
   }
+  let workspaceId = localStorage.getItem(WS_KEY) || "";
+  let session = load(SESSION_KEY, null) || null;
+
 
   /* =======================
      DB
@@ -79,21 +90,89 @@ alert("JS carregado ✅ Gestão Fácil - V1 (BASE + Sales + Inventory + Audit + 
     online: { enabled: false, url: "", key: "" } });
 
 
-  let db = load(DB_KEY, emptyDB());
-  db.users = db.users || [];
-  db.products = db.products || [];
-  db.clients = db.clients || [];
-  db.accounts = db.accounts || [];
-  db.sales = db.sales || [];
-  db.purchases = db.purchases || [];
-  db.ledger = db.ledger || [];
-  db.inventory = db.inventory || [];
-  db.audit = db.audit || [];
-  db.settings = db.settings || { autoSnapshots: true, snapshotRetention: 30 };
-  db.online = db.online || { enabled: false, url: "", key: "" };
 
-  let session = load(SESSION_KEY, null);
-  let workspaceId = localStorage.getItem(WS_KEY) || "";
+  let db = load(DB_KEY, emptyDB());
+  db = normalizeDB(db);
+  save(DB_KEY, db); // garante base consistente já no arranque
+  db = ensureAllUpdatedAt(db);
+  save(DB_KEY, db);
+  session = load(SESSION_KEY, null) || null;
+
+
+
+  function normalizeDB(db) {
+    const base = emptyDB();
+
+    db = db && typeof db === "object" ? db : {};
+
+    // coleções
+    db.users = Array.isArray(db.users) ? db.users : [];
+    db.products = Array.isArray(db.products) ? db.products : [];
+    db.clients = Array.isArray(db.clients) ? db.clients : [];
+    db.accounts = Array.isArray(db.accounts) ? db.accounts : [];
+    db.sales = Array.isArray(db.sales) ? db.sales : [];
+    db.purchases = Array.isArray(db.purchases) ? db.purchases : [];
+    db.ledger = Array.isArray(db.ledger) ? db.ledger : [];
+    db.inventory = Array.isArray(db.inventory) ? db.inventory : [];
+    db.audit = Array.isArray(db.audit) ? db.audit : [];
+
+    // settings
+    db.settings = db.settings || {};
+    db.settings.autoSnapshots =
+    typeof db.settings.autoSnapshots === "boolean" ?
+    db.settings.autoSnapshots :
+    base.settings.autoSnapshots;
+
+    db.settings.snapshotRetention =
+    Number.isFinite(db.settings.snapshotRetention) ?
+    db.settings.snapshotRetention :
+    base.settings.snapshotRetention;
+
+    // online
+    db.online = db.online || {};
+    db.online.enabled = !!db.online.enabled;
+    db.online.url = db.online.url || "";
+    db.online.key = db.online.key || "";
+
+    // meta
+    db.meta = db.meta || base.meta;
+    db.meta.version = db.meta.version || base.meta.version;
+    db.meta.updatedAt = nowISO();
+
+    return db;
+  }
+  function repEnsureUpdatedAt(obj) {
+    if (!obj || typeof obj !== "object") return obj;
+    if (!obj.createdAt) obj.createdAt = nowISO();
+    if (!obj.updatedAt) obj.updatedAt = obj.createdAt;
+    return obj;
+  }
+
+  function ensureAllUpdatedAt(db) {
+    const cols = ["users", "products", "clients", "accounts", "sales", "purchases", "ledger", "inventory", "audit"];
+    cols.forEach(k => {
+      db[k] = Array.isArray(db[k]) ? db[k] : [];
+      db[k].forEach(repEnsureUpdatedAt);
+    });
+    return db;
+  }
+
+  /* =======================
+   Daily snapshot (1x por dia)
+  ======================= */
+  function shouldRunDailySnapshot() {
+    const ws = localStorage.getItem(WS_KEY) || workspaceId || "no_ws";
+    const key = `gf_daily_snap_${ws}`;
+    return localStorage.getItem(key) !== todayISO();
+  }
+
+
+  function markDailySnapshotDone() {
+    const ws = localStorage.getItem(WS_KEY) || workspaceId || "no_ws";
+    const key = `gf_daily_snap_${ws}`;
+    localStorage.setItem(key, todayISO());
+  }
+
 
   function saveDBTouch() {
     db.meta.updatedAt = nowISO();
@@ -150,6 +229,408 @@ alert("JS carregado ✅ Gestão Fácil - V1 (BASE + Sales + Inventory + Audit + 
     clearTimeout(_deb[key]);
     _deb[key] = setTimeout(fn, ms);
   }
+  /* =======================
+   FASE C — RELATORIOS (READ-ONLY)
+   - Nao altera db
+   - Apenas lê e agrega
+   - Prefixo rep_ para nao colidir com o teu codigo
+  ======================= */
+
+  function rep_toDateOnly(d) {
+    if (!d) return null;
+    const s = String(d);
+    return s.length >= 10 ? s.slice(0, 10) : s;
+  }
+
+  function rep_inRange(dateISO, from, to) {
+    const d = rep_toDateOnly(dateISO);
+    if (!d) return false;
+    if (from && d < from) return false;
+    if (to && d > to) return false;
+    return true;
+  }
+
+  function rep_safeArr(x) {return Array.isArray(x) ? x : [];}
+
+  function rep_sum(arr, fn) {
+    return rep_safeArr(arr).reduce((a, x) => a + (fn ? Number(fn(x)) || 0 : Number(x) || 0), 0);
+  }
+
+  function rep_groupBy(arr, keyFn) {
+    const m = new Map();
+    for (const it of rep_safeArr(arr)) {
+      const k = keyFn(it);
+      if (!m.has(k)) m.set(k, []);
+      m.get(k).push(it);
+    }
+    return m;
+  }
+
+  function rep_periodKey(dateISO, period = "day") {
+    const d = new Date(dateISO);
+    if (Number.isNaN(d.getTime())) return null;
+    const y = d.getUTCFullYear();
+    const m = String(d.getUTCMonth() + 1).padStart(2, "0");
+    const day = String(d.getUTCDate()).padStart(2, "0");
+
+    if (period === "month") return `${y}-${m}`;
+
+    if (period === "week") {
+      const t = new Date(Date.UTC(y, d.getUTCMonth(), d.getUTCDate()));
+      const dow = (t.getUTCDay() + 6) % 7; // Mon=0
+      t.setUTCDate(t.getUTCDate() - dow + 3); // quinta
+      const firstThu = new Date(Date.UTC(t.getUTCFullYear(), 0, 4));
+      const firstDow = (firstThu.getUTCDay() + 6) % 7;
+      firstThu.setUTCDate(firstThu.getUTCDate() - firstDow + 3);
+      const week = 1 + Math.round((t - firstThu) / (7 * 24 * 3600 * 1000));
+      return `${t.getUTCFullYear()}-W${String(week).padStart(2, "0")}`;
+    }
+
+    return `${y}-${m}-${day}`; // day
+  }
+
+  function rep_normFilters(f) {
+    const filters = {
+      from: null,
+      to: null,
+      period: "day", // day|week|month
+      userId: null, // actorId (audit) / session user (se quiser no futuro)
+      clientId: null,
+      productId: null,
+      accountId: null,
+      supplier: null,
+      includeCancelled: false,
+      ...(f || {}) };
+
+    filters.from = filters.from ? rep_toDateOnly(filters.from) : null;
+    filters.to = filters.to ? rep_toDateOnly(filters.to) : null;
+    return filters;
+  }
+
+  // ===== Extractors (ajustados ao TEU db real) =====
+  function rep_saleIsCancelled(s) {return (s === null || s === void 0 ? void 0 : s.status) === "cancelled";}
+  function rep_saleDate(s) {return (s === null || s === void 0 ? void 0 : s.date) || (s !== null && s !== void 0 && s.createdAt ? String(s.createdAt).slice(0, 10) : null);}
+  function rep_saleItems(s) {return rep_safeArr(s === null || s === void 0 ? void 0 : s.items);}
+  function rep_saleTotal(s) {return Number((s === null || s === void 0 ? void 0 : s.total) || 0) || 0;}
+
+  function rep_purchaseDate(p) {return (p === null || p === void 0 ? void 0 : p.date) || (p !== null && p !== void 0 && p.createdAt ? String(p.createdAt).slice(0, 10) : null);}
+  function rep_purchaseSupplier(p) {return (p === null || p === void 0 ? void 0 : p.supplier) || "";}
+  function rep_purchaseTotal(p) {return Number((p === null || p === void 0 ? void 0 : p.total) || 0) || 0;}
+
+  function rep_ledgerDate(l) {return (l === null || l === void 0 ? void 0 : l.date) || (l !== null && l !== void 0 && l.createdAt ? String(l.createdAt).slice(0, 10) : null);}
+  function rep_ledgerType(l) {return (l === null || l === void 0 ? void 0 : l.type) || "";} // in|out
+  function rep_ledgerAmount(l) {return Number((l === null || l === void 0 ? void 0 : l.amount) || 0) || 0;}
+  function rep_ledgerAccountId(l) {return (l === null || l === void 0 ? void 0 : l.accountId) || "";}
+
+  function rep_invDate(m) {return (m === null || m === void 0 ? void 0 : m.date) || (m !== null && m !== void 0 && m.createdAt ? String(m.createdAt).slice(0, 10) : null);}
+  function rep_invProductId(m) {return (m === null || m === void 0 ? void 0 : m.productId) || "";}
+  function rep_invDelta(m) {
+    const qty = Number((m === null || m === void 0 ? void 0 : m.qty) || 0) || 0;
+    if ((m === null || m === void 0 ? void 0 : m.type) === "in") return Math.abs(qty);
+    if ((m === null || m === void 0 ? void 0 : m.type) === "out") return -Math.abs(qty);
+    return qty;
+  }
+
+  // ===== R1: Resumo de Vendas =====
+  function rep_salesSummary(filters) {var _db;
+    const f = rep_normFilters(filters);
+    const sales = rep_safeArr((_db = db) === null || _db === void 0 ? void 0 : _db.sales).filter(s => {
+      if (!f.includeCancelled && rep_saleIsCancelled(s)) return false;
+      const d = rep_saleDate(s);
+      if (f.from || f.to) if (!rep_inRange(d, f.from, f.to)) return false;
+      if (f.clientId && (s.clientId || "") !== f.clientId) return false;
+      if (f.accountId && (s.accountId || "") !== f.accountId) return false;
+      if (f.productId) {
+        const has = rep_saleItems(s).some(it => (it.productId || "") === f.productId);
+        if (!has) return false;
+      }
+      return true;
+    });
+
+    const totalRevenue = rep_sum(sales, rep_saleTotal);
+    const numSales = sales.length;
+    const itemsSold = rep_sum(sales, s => rep_sum(rep_saleItems(s), it => Number(it.qty || 0) || 0));
+    const avgTicket = numSales ? totalRevenue / numSales : 0;
+
+    return { totalRevenue, numSales, itemsSold, avgTicket };
+  }
+
+  // ===== R2: Serie temporal de Vendas =====
+  function rep_salesTimeseries(filters) {var _db2;
+    const f = rep_normFilters(filters);
+    const sales = rep_safeArr((_db2 = db) === null || _db2 === void 0 ? void 0 : _db2.sales).filter(s => {
+      if (!f.includeCancelled && rep_saleIsCancelled(s)) return false;
+      const d = rep_saleDate(s);
+      if (f.from || f.to) if (!rep_inRange(d, f.from, f.to)) return false;
+      if (f.clientId && (s.clientId || "") !== f.clientId) return false;
+      if (f.accountId && (s.accountId || "") !== f.accountId) return false;
+      return true;
+    });
+
+    const buckets = rep_groupBy(sales, s => rep_periodKey(s.createdAt || s.date || "", f.period));
+    const points = [];
+    for (const [k, arr] of buckets.entries()) {
+      if (!k) continue;
+      points.push({
+        period: k,
+        revenue: rep_sum(arr, rep_saleTotal),
+        numSales: arr.length,
+        items: rep_sum(arr, s => rep_sum(rep_saleItems(s), it => Number(it.qty || 0) || 0)) });
+
+    }
+    points.sort((a, b) => String(a.period).localeCompare(String(b.period)));
+    return points;
+  }
+
+  // ===== R3: Vendas por Produto =====
+  function rep_salesByProduct(filters) {var _db3, _db4;
+    const f = rep_normFilters(filters);
+    const sales = rep_safeArr((_db3 = db) === null || _db3 === void 0 ? void 0 : _db3.sales).filter(s => {
+      if (!f.includeCancelled && rep_saleIsCancelled(s)) return false;
+      const d = rep_saleDate(s);
+      if (f.from || f.to) if (!rep_inRange(d, f.from, f.to)) return false;
+      if (f.clientId && (s.clientId || "") !== f.clientId) return false;
+      if (f.accountId && (s.accountId || "") !== f.accountId) return false;
+      return true;
+    });
+
+    const map = new Map();
+    for (const s of sales) {
+      for (const it of rep_saleItems(s)) {
+        const pid = it.productId || "";
+        if (!pid) continue;
+        if (f.productId && pid !== f.productId) continue;
+
+        const qty = Number(it.qty || 0) || 0;
+        const price = Number(it.price || 0) || 0;
+        const revenue = qty * price;
+
+        if (!map.has(pid)) map.set(pid, { productId: pid, productName: "", qty: 0, revenue: 0 });
+        const a = map.get(pid);
+        a.qty += qty;
+        a.revenue += revenue;
+      }
+    }
+
+    const pMap = new Map(rep_safeArr((_db4 = db) === null || _db4 === void 0 ? void 0 : _db4.products).map(p => [p.id, p]));
+    const rows = Array.from(map.values()).map(r => {var _pMap$get;return {
+        ...r,
+        productName: ((_pMap$get = pMap.get(r.productId)) === null || _pMap$get === void 0 ? void 0 : _pMap$get.name) || "" };});
+
+
+    const grand = rep_sum(rows, r => r.revenue) || 0;
+    rows.forEach(r => r.share = grand ? r.revenue / grand : 0);
+    rows.sort((a, b) => b.revenue - a.revenue);
+    return rows;
+  }
+
+  // ===== R4: Vendas por Cliente =====
+  function rep_salesByClient(filters) {var _db5, _db6;
+    const f = rep_normFilters(filters);
+    const sales = rep_safeArr((_db5 = db) === null || _db5 === void 0 ? void 0 : _db5.sales).filter(s => {
+      if (!f.includeCancelled && rep_saleIsCancelled(s)) return false;
+      const d = rep_saleDate(s);
+      if (f.from || f.to) if (!rep_inRange(d, f.from, f.to)) return false;
+      if (f.clientId && (s.clientId || "") !== f.clientId) return false;
+      return true;
+    });
+
+    const map = new Map();
+    for (const s of sales) {
+      const cid = s.clientId || "SEM_CLIENTE";
+      if (f.clientId && cid !== f.clientId) continue;
+      if (!map.has(cid)) map.set(cid, { clientId: cid, clientName: "", revenue: 0, numSales: 0, avgTicket: 0 });
+      const a = map.get(cid);
+      a.revenue += rep_saleTotal(s);
+      a.numSales += 1;
+    }
+
+    const cMap = new Map(rep_safeArr((_db6 = db) === null || _db6 === void 0 ? void 0 : _db6.clients).map(c => [c.id, c]));
+    const rows = Array.from(map.values()).map(r => {var _cMap$get;return {
+        ...r,
+        clientName: r.clientId === "SEM_CLIENTE" ? "Sem cliente" : ((_cMap$get = cMap.get(r.clientId)) === null || _cMap$get === void 0 ? void 0 : _cMap$get.name) || "",
+        avgTicket: r.numSales ? r.revenue / r.numSales : 0 };});
+
+
+    rows.sort((a, b) => b.revenue - a.revenue);
+    return rows;
+  }
+
+  // ===== R5: Compras resumo =====
+  function rep_purchasesSummary(filters) {var _db7;
+    const f = rep_normFilters(filters);
+    const purchases = rep_safeArr((_db7 = db) === null || _db7 === void 0 ? void 0 : _db7.purchases).filter(p => {
+      const d = rep_purchaseDate(p);
+      if (f.from || f.to) if (!rep_inRange(d, f.from, f.to)) return false;
+      if (f.supplier && rep_purchaseSupplier(p) !== f.supplier) return false;
+      if (f.accountId && (p.accountId || "") !== f.accountId) return false;
+      return true;
+    });
+
+    const totalSpent = rep_sum(purchases, rep_purchaseTotal);
+    const numPurchases = purchases.length;
+    const itemsBought = rep_sum(purchases, p => rep_sum(rep_safeArr(p.items), it => Number(it.qty || 0) || 0));
+
+    return { totalSpent, numPurchases, itemsBought };
+  }
+
+  // ===== R6: Compras por fornecedor =====
+  function rep_purchasesBySupplier(filters) {var _db8;
+    const f = rep_normFilters(filters);
+    const purchases = rep_safeArr((_db8 = db) === null || _db8 === void 0 ? void 0 : _db8.purchases).filter(p => {
+      const d = rep_purchaseDate(p);
+      if (f.from || f.to) if (!rep_inRange(d, f.from, f.to)) return false;
+      return true;
+    });
+
+    const map = new Map();
+    for (const p of purchases) {
+      const sup = rep_purchaseSupplier(p) || "SEM_FORNECEDOR";
+      if (f.supplier && sup !== f.supplier) continue;
+      if (!map.has(sup)) map.set(sup, { supplier: sup, spent: 0, numPurchases: 0 });
+      const a = map.get(sup);
+      a.spent += rep_purchaseTotal(p);
+      a.numPurchases += 1;
+    }
+
+    const rows = Array.from(map.values());
+    rows.sort((a, b) => b.spent - a.spent);
+    return rows;
+  }
+
+  // ===== R7: Fluxo de Caixa (ledger) =====
+  function rep_cashflow(filters) {var _db9;
+    const f = rep_normFilters(filters);
+    const led = rep_safeArr((_db9 = db) === null || _db9 === void 0 ? void 0 : _db9.ledger).filter(l => {
+      const d = rep_ledgerDate(l);
+      if (f.from || f.to) if (!rep_inRange(d, f.from, f.to)) return false;
+      if (f.accountId && rep_ledgerAccountId(l) !== f.accountId) return false;
+      return true;
+    });
+
+    const buckets = rep_groupBy(led, l => rep_periodKey(l.createdAt || l.date || "", f.period));
+    const points = [];
+    for (const [k, arr] of buckets.entries()) {
+      if (!k) continue;
+      const inflow = rep_sum(arr.filter(x => rep_ledgerType(x) === "in"), rep_ledgerAmount);
+      const outflow = rep_sum(arr.filter(x => rep_ledgerType(x) === "out"), rep_ledgerAmount);
+      points.push({ period: k, inflow, outflow, net: inflow - outflow });
+    }
+    points.sort((a, b) => String(a.period).localeCompare(String(b.period)));
+    return points;
+  }
+
+  // ===== R8: Saldos por conta (via ledger) =====
+  function rep_accountBalances(filters) {var _db10, _db11;
+    const f = rep_normFilters(filters);
+    const accounts = rep_safeArr((_db10 = db) === null || _db10 === void 0 ? void 0 : _db10.accounts).filter(a => a.active !== false);
+    const led = rep_safeArr((_db11 = db) === null || _db11 === void 0 ? void 0 : _db11.ledger);
+
+    const rows = accounts.map(acc => {
+      const accId = acc.id;
+      const ledAll = led.filter(l => rep_ledgerAccountId(l) === accId);
+
+      const ledPeriod = ledAll.filter(l => {
+        const d = rep_ledgerDate(l);
+        return !f.from && !f.to ? true : rep_inRange(d, f.from, f.to);
+      });
+
+      const inflowAll = rep_sum(ledAll.filter(x => rep_ledgerType(x) === "in"), rep_ledgerAmount);
+      const outflowAll = rep_sum(ledAll.filter(x => rep_ledgerType(x) === "out"), rep_ledgerAmount);
+      const balance = (Number(acc.initialBalance || 0) || 0) + inflowAll - outflowAll;
+
+      const inflowP = rep_sum(ledPeriod.filter(x => rep_ledgerType(x) === "in"), rep_ledgerAmount);
+      const outflowP = rep_sum(ledPeriod.filter(x => rep_ledgerType(x) === "out"), rep_ledgerAmount);
+      const netPeriod = inflowP - outflowP;
+
+      return { accountId: accId, accountName: acc.name || "", balance, netPeriod };
+    });
+
+    rows.sort((a, b) => b.balance - a.balance);
+    return rows;
+  }
+
+  // ===== R9: Inventario atual (produtos) + alertas =====
+  function rep_inventoryStatus() {var _db12;
+    const products = rep_safeArr((_db12 = db) === null || _db12 === void 0 ? void 0 : _db12.products).filter(p => p.active !== false);
+    const rows = products.map(p => {
+      const stock = Number(p.stock || 0) || 0;
+      const minStock = Number(p.stockMin || 0) || 0;
+      const low = !p.stockBaseId && minStock > 0 ? stock <= minStock : false;
+      return { productId: p.id, productName: p.name || "", stock, minStock, low, isPackage: !!p.stockBaseId };
+    });
+
+    rows.sort((a, b) => a.low === b.low ? a.stock - b.stock : a.low ? -1 : 1);
+    return rows;
+  }
+
+  // ===== R10: Movimentos de inventario (timeseries) =====
+  function rep_inventoryMovements(filters) {var _db13;
+    const f = rep_normFilters(filters);
+    const inv = rep_safeArr((_db13 = db) === null || _db13 === void 0 ? void 0 : _db13.inventory).filter(m => {
+      const d = rep_invDate(m);
+      if (f.from || f.to) if (!rep_inRange(d, f.from, f.to)) return false;
+      if (f.productId && rep_invProductId(m) !== f.productId) return false;
+      return true;
+    });
+
+    const buckets = rep_groupBy(inv, m => rep_periodKey(m.createdAt || m.date || "", f.period));
+    const points = [];
+    for (const [k, arr] of buckets.entries()) {
+      if (!k) continue;
+      const delta = rep_sum(arr, rep_invDelta);
+      const inQty = rep_sum(arr.filter(x => rep_invDelta(x) > 0), x => rep_invDelta(x));
+      const outQty = Math.abs(rep_sum(arr.filter(x => rep_invDelta(x) < 0), x => rep_invDelta(x)));
+      points.push({ period: k, inQty, outQty, netDelta: delta });
+    }
+
+    points.sort((a, b) => String(a.period).localeCompare(String(b.period)));
+    return points;
+  }
+
+  // ===== R11: Auditoria (contagens) =====
+  function rep_auditSummary(filters) {var _db14;
+    const f = rep_normFilters(filters);
+    const aud = rep_safeArr((_db14 = db) === null || _db14 === void 0 ? void 0 : _db14.audit).filter(r => {
+      const d = (r.ts || "").slice(0, 10);
+      if (f.from || f.to) if (!rep_inRange(d, f.from, f.to)) return false;
+      if (f.userId && (r.actorId || "") !== f.userId) return false;
+      return true;
+    });
+
+    const byAction = [];
+    for (const [action, arr] of rep_groupBy(aud, x => x.action || "unknown").entries()) {
+      byAction.push({ action, count: arr.length });
+    }
+    byAction.sort((a, b) => b.count - a.count);
+
+    const byUser = [];
+    for (const [uid0, arr] of rep_groupBy(aud, x => x.actorId || "SEM_USER").entries()) {
+      const name = arr[0] && (arr[0].actorName || "") || "";
+      byUser.push({ userId: uid0, userName: name, count: arr.length });
+    }
+    byUser.sort((a, b) => b.count - a.count);
+
+    return { total: aud.length, byAction, byUser };
+  }
+
+  // ===== R12: Resumo geral (facade) =====
+  function rep_all(filters) {
+    return {
+      salesSummary: rep_salesSummary(filters),
+      salesTimeseries: rep_salesTimeseries(filters),
+      salesByProduct: rep_salesByProduct(filters),
+      salesByClient: rep_salesByClient(filters),
+      purchasesSummary: rep_purchasesSummary(filters),
+      purchasesBySupplier: rep_purchasesBySupplier(filters),
+      cashflow: rep_cashflow(filters),
+      accountBalances: rep_accountBalances(filters),
+      inventoryStatus: rep_inventoryStatus(),
+      inventoryMovements: rep_inventoryMovements(filters),
+      audit: rep_auditSummary(filters) };
+
+  }
+
 
   /* =======================
      Stock helpers
@@ -213,6 +694,72 @@ alert("JS carregado ✅ Gestão Fácil - V1 (BASE + Sales + Inventory + Audit + 
   const btnSync = el("btnSync");
   const btnBackup = el("btnBackup");
 
+  /* =======================
+     Topbar Actions
+  ======================= */
+
+  // BACKUP manual
+  if (btnBackup) {
+    btnBackup.onclick = async () => {
+      try {var _db$online;
+        if (!session) return alert("Faça login primeiro.");
+        if (!((_db$online = db.online) !== null && _db$online !== void 0 && _db$online.enabled)) return alert("Ative o Supabase em Config.");
+
+        await pushSnapshot("manual_backup");
+        logAction("backup.manual", "snapshot", "");
+        alert("Backup criado com sucesso ✅");
+      } catch (e) {
+        alert("Erro no backup: " + ((e === null || e === void 0 ? void 0 : e.message) || e));
+      }
+    };
+  }
+
+  // SYNC REAL (MERGE + PUSH)
+  if (btnSync) {
+    btnSync.onclick = async () => {
+      try {var _db$online2;
+        if (!session) return alert("Faça login primeiro.");
+        if (!((_db$online2 = db.online) !== null && _db$online2 !== void 0 && _db$online2.enabled)) return alert("Ative o Supabase em Config.");
+
+        if (!confirm(
+        "Sync real:\n\n" +
+        "• Junta dados locais + nuvem\n" +
+        "• Não apaga vendas do outro dispositivo\n" +
+        "• Envia o resultado final para a nuvem\n\n" +
+        "Continuar?"))
+        return;
+
+        const latest = await pullLatestSnapshot();
+        if (!latest || !latest.payload) return alert("Nenhum snapshot encontrado na nuvem.");
+
+        const merged = mergeDB(db, latest.payload);
+
+        db = merged;
+        save(DB_KEY, db);
+
+        await pushSnapshot("sync_merge");
+
+        renderPOS();
+        renderProducts();
+        renderClients();
+        renderAccounts();
+        renderLedger();
+        renderInventory();
+        renderSales();
+        renderAudit();
+        renderSettings();
+
+        logAction("sync.merge", "snapshot", "", { remote_created_at: latest.created_at });
+        alert("Sync real concluído ✅");
+      } catch (e) {
+        alert("Erro no Sync: " + ((e === null || e === void 0 ? void 0 : e.message) || e));
+        logAction("sync.error", "", "", { error: String(e) });
+      }
+    };
+  }
+
+
+
   // Supabase login
   const sbUrlLogin = el("sbUrlLogin");
   const sbKeyLogin = el("sbKeyLogin");
@@ -232,15 +779,24 @@ alert("JS carregado ✅ Gestão Fácil - V1 (BASE + Sales + Inventory + Audit + 
   function refreshUsersDropdown() {
     if (!userSelect) return;
     userSelect.innerHTML = "";
+
     const users = (db.users || []).filter(u => u.active !== false);
 
+    // MODO BOOTSTRAP: loja nova
     if (!users.length) {
       const o = document.createElement("option");
-      o.textContent = "— Sem utilizadores —";
+      o.textContent = "— Sem utilizadores (crie o Admin) —";
       o.value = "";
       userSelect.appendChild(o);
+
+      if (btnLogin) btnLogin.disabled = true;
+      if (pinInput) pinInput.disabled = true;
       return;
     }
+
+    // MODO NORMAL
+    if (btnLogin) btnLogin.disabled = false;
+    if (pinInput) pinInput.disabled = false;
 
     users.forEach(u => {
       const o = document.createElement("option");
@@ -371,13 +927,276 @@ alert("JS carregado ✅ Gestão Fácil - V1 (BASE + Sales + Inventory + Audit + 
       }
       if (viewKey === "stock") renderStockView();
       if (viewKey === "audit") renderAudit();
-      if (viewKey === "settings") renderSettings();
+      if (viewKey === "settings") {
+        renderSettings();
+        renderUsersManagement(); // ✅ chama a gestão de utilizadores
+      }
 
+      if (viewKey === "reports") renderReports();
     } catch (e) {
       console.error(e);
       alert(e.message || e);
     }
   }
+  // ✅ FECHA openView AQUI
+
+  /* =======================
+     Reports UI (Fase C)
+  ======================= */
+  /* =======================
+    Reports UI (Fase C) — FIXED
+  ======================= */
+  function renderReports() {
+    const repFrom = el("repFrom");
+    const repTo = el("repTo");
+    const repPeriod = el("repPeriod");
+    const btnRunReports = el("btnRunReports");
+
+    // Cards principais
+    const repSalesTotal = el("repSalesTotal");
+    const repSalesMeta = el("repSalesMeta");
+
+    const repCashNet = el("repCashNet");
+    const repCashMeta = el("repCashMeta");
+    const repCashTable = el("repCashTable");
+
+    const repLowStock = el("repLowStock");
+    const repTopProducts = el("repTopProducts");
+
+    // Compras
+    const repPurchasesTotal = el("repPurchasesTotal");
+    const repPurchasesMeta = el("repPurchasesMeta");
+    const repPurchasesBySupplier = el("repPurchasesBySupplier");
+    const repPurchasesSummary = el("repPurchasesSummary");
+
+    // Vendas por cliente
+    const repSalesByClientEl = el("repSalesByClient");
+
+    // Novos blocos
+    const repAccountBalancesEl = el("repAccountBalances");
+    const repInventoryMovementsEl = el("repInventoryMovements");
+    const repAuditSummaryEl = el("repAuditSummary");
+
+    // defaults seguros
+    if (repFrom && !repFrom.value) repFrom.value = todayISO().slice(0, 8) + "01";
+    if (repTo && !repTo.value) repTo.value = todayISO();
+
+    const run = () => {
+      if (!window.GFReports) {
+        alert("Motor de relatórios não encontrado (GFReports).");
+        return;
+      }
+
+      const filters = {
+        from: repFrom ? repFrom.value : "",
+        to: repTo ? repTo.value : "",
+        period: repPeriod ? repPeriod.value : "month" };
+
+
+      /* ===== Vendas (Resumo) ===== */
+      const s = window.GFReports.salesSummary(filters) || {};
+      if (repSalesTotal) repSalesTotal.textContent = MT(s.totalRevenue || 0);
+      if (repSalesMeta) {
+        repSalesMeta.textContent =
+        `${s.numSales || 0} venda(s) • ${Math.round(s.itemsSold || 0)} item(s) • Ticket: ${MT(s.avgTicket || 0)}`;
+      }
+
+      /* ===== Caixa (Cashflow) ===== */
+      const cash = window.GFReports.cashflow(filters) || [];
+      const net = cash.reduce((a, p) => a + Number(p.net || 0), 0);
+      const inflow = cash.reduce((a, p) => a + Number(p.inflow || 0), 0);
+      const outflow = cash.reduce((a, p) => a + Number(p.outflow || 0), 0);
+
+      if (repCashNet) repCashNet.textContent = MT(net);
+      if (repCashMeta) repCashMeta.textContent = `Entradas: ${MT(inflow)} • Saídas: ${MT(outflow)}`;
+
+      if (repCashTable) {
+        repCashTable.innerHTML = "";
+        if (!cash.length) {
+          repCashTable.innerHTML = `<div class="muted">Sem movimentos no período.</div>`;
+        } else {
+          cash.slice(-12).forEach(p => {
+            const row = document.createElement("div");
+            row.className = "row between";
+            row.innerHTML = `
+            <div><b>${p.period}</b></div>
+            <div class="mono">
+              +${MT(p.inflow)} &nbsp; -${MT(p.outflow)} &nbsp; = <b>${MT(p.net)}</b>
+            </div>
+          `;
+            repCashTable.appendChild(row);
+          });
+        }
+      }
+
+      /* ===== Stock baixo ===== */
+      const inv = window.GFReports.inventoryStatus() || [];
+      const low = inv.filter(x => x.low).length;
+      if (repLowStock) repLowStock.textContent = String(low);
+
+      /* ===== Top produtos ===== */
+      const top = (window.GFReports.salesByProduct(filters) || []).slice(0, 8);
+      if (repTopProducts) {
+        repTopProducts.innerHTML = "";
+        if (!top.length) {
+          repTopProducts.innerHTML = `<div class="muted">Sem dados neste período.</div>`;
+        } else {
+          top.forEach(r => {
+            const row = document.createElement("div");
+            row.className = "row between";
+            row.innerHTML = `
+            <div>${r.productName || r.productId}</div>
+            <div class="mono">${MT(r.revenue || 0)} <span class="muted">(${Math.round(r.qty || 0)} un.)</span></div>
+          `;
+            repTopProducts.appendChild(row);
+          });
+        }
+      }
+
+      /* ===== Compras (Resumo - cards) ===== */
+      const ps = window.GFReports.purchasesSummary(filters) || {};
+      if (repPurchasesTotal) repPurchasesTotal.textContent = MT(ps.totalSpent || 0);
+      if (repPurchasesMeta) {
+        repPurchasesMeta.textContent = `${ps.numPurchases || 0} compra(s) • ${Math.round(ps.itemsBought || 0)} item(s)`;
+      }
+
+      /* ===== Compras (Resumo - bloco detalhado) ===== */
+      if (repPurchasesSummary) {
+        repPurchasesSummary.innerHTML = `
+        <div class="row between">
+          <div class="muted">Total gasto</div>
+          <div class="mono"><b>${MT(ps.totalSpent || 0)}</b></div>
+        </div>
+        <div class="row between">
+          <div class="muted">Nº de compras</div>
+          <div class="mono"><b>${ps.numPurchases || 0}</b></div>
+        </div>
+        <div class="row between">
+          <div class="muted">Itens comprados</div>
+          <div class="mono"><b>${Math.round(ps.itemsBought || 0)}</b></div>
+        </div>
+      `;
+      }
+
+      /* ===== Compras por Fornecedor ===== */
+      if (repPurchasesBySupplier) {
+        const bySup = (window.GFReports.purchasesBySupplier(filters) || []).slice(0, 10);
+
+        repPurchasesBySupplier.innerHTML = "";
+        if (!bySup.length) {
+          repPurchasesBySupplier.innerHTML = `<div class="muted">Sem dados neste período.</div>`;
+        } else {
+          bySup.forEach(r => {
+            const row = document.createElement("div");
+            row.className = "row between";
+            row.innerHTML = `
+            <div>${r.supplier || "Sem fornecedor"}</div>
+            <div class="mono"><b>${MT(r.spent || 0)}</b> <span class="muted">(${r.numPurchases || 0})</span></div>
+          `;
+            repPurchasesBySupplier.appendChild(row);
+          });
+        }
+      }
+
+      /* ===== Vendas por Cliente ===== */
+      if (repSalesByClientEl) {
+        const byClient = (window.GFReports.salesByClient(filters) || []).slice(0, 10);
+
+        repSalesByClientEl.innerHTML = "";
+        if (!byClient.length) {
+          repSalesByClientEl.innerHTML = `<div class="muted">Sem dados neste período.</div>`;
+        } else {
+          byClient.forEach(r => {
+            const row = document.createElement("div");
+            row.className = "row between";
+            row.innerHTML = `
+            <div>${r.clientName || "Sem cliente"}</div>
+            <div class="mono"><b>${MT(r.revenue || 0)}</b> <span class="muted">(${r.numSales || 0} venda(s))</span></div>
+          `;
+            repSalesByClientEl.appendChild(row);
+          });
+        }
+      }
+
+      /* ===== Saldos por Conta ===== */
+      if (repAccountBalancesEl) {
+        const bals = (window.GFReports.accountBalances(filters) || []).slice(0, 20);
+        repAccountBalancesEl.innerHTML = "";
+        if (!bals.length) {
+          repAccountBalancesEl.innerHTML = `<div class="muted">Sem contas / sem movimentos.</div>`;
+        } else {
+          bals.forEach(r => {
+            const row = document.createElement("div");
+            row.className = "row between";
+            row.innerHTML = `
+            <div>${r.accountName || r.accountId}</div>
+            <div class="mono">
+              <b>${MT(r.balance || 0)}</b>
+              <span class="muted"> (Período: ${MT(r.netPeriod || 0)})</span>
+            </div>
+          `;
+            repAccountBalancesEl.appendChild(row);
+          });
+        }
+      }
+
+      /* ===== Movimentos de Inventário ===== */
+      if (repInventoryMovementsEl) {
+        const mov = (window.GFReports.inventoryMovements(filters) || []).slice(-12);
+        repInventoryMovementsEl.innerHTML = "";
+        if (!mov.length) {
+          repInventoryMovementsEl.innerHTML = `<div class="muted">Sem movimentos no período.</div>`;
+        } else {
+          mov.forEach(p => {
+            const row = document.createElement("div");
+            row.className = "row between";
+            row.innerHTML = `
+            <div><b>${p.period}</b></div>
+            <div class="mono">
+              +${Math.round(p.inQty || 0)} &nbsp; -${Math.round(p.outQty || 0)} &nbsp; = <b>${Math.round(p.netDelta || 0)}</b>
+            </div>
+          `;
+            repInventoryMovementsEl.appendChild(row);
+          });
+        }
+      }
+
+      /* ===== Auditoria (Resumo) ===== */
+      if (repAuditSummaryEl) {
+        const a = window.GFReports.audit(filters) || {};
+        const topActions = (a.byAction || []).slice(0, 5);
+        const topUsers = (a.byUser || []).slice(0, 5);
+
+        repAuditSummaryEl.innerHTML = `
+        <div class="row between">
+          <div class="muted">Total registos</div>
+          <div class="mono"><b>${a.total || 0}</b></div>
+        </div>
+        <hr class="sep" />
+        <div class="muted" style="margin-bottom:6px"><b>Top ações</b></div>
+        ${topActions.length ? topActions.map(x => `
+          <div class="row between">
+            <div>${x.action}</div>
+            <div class="mono"><b>${x.count}</b></div>
+          </div>
+        `).join("") : `<div class="muted">Sem dados.</div>`}
+        <hr class="sep" />
+        <div class="muted" style="margin-bottom:6px"><b>Top utilizadores</b></div>
+        ${topUsers.length ? topUsers.map(x => `
+          <div class="row between">
+            <div>${x.userName || x.userId}</div>
+            <div class="mono"><b>${x.count}</b></div>
+          </div>
+        `).join("") : `<div class="muted">Sem dados.</div>`}
+      `;
+      }
+    };
+
+    if (btnRunReports) btnRunReports.onclick = run;
+    run();
+  }
+
+
 
   function initNav() {
     const navs = document.querySelectorAll(".nav");
@@ -575,7 +1394,8 @@ alert("JS carregado ✅ Gestão Fácil - V1 (BASE + Sales + Inventory + Audit + 
       };
 
       row.querySelector('[data-act="del"]').onclick = () => {
-        if (!canManage()) return alert("Sem permissão.");
+        if (!canManage()) return;
+        alert("Sem permissão.");
         if (!confirm("Apagar conta? (será desativada)")) return;
         a.active = false;
         a.updatedAt = nowISO();
@@ -1613,6 +2433,7 @@ alert("JS carregado ✅ Gestão Fácil - V1 (BASE + Sales + Inventory + Audit + 
           note });
 
 
+
         sale.ledgerId = (led === null || led === void 0 ? void 0 : led.id) || "";
         sale.updatedAt = nowISO();
         saveDBTouch();
@@ -1968,6 +2789,67 @@ alert("JS carregado ✅ Gestão Fácil - V1 (BASE + Sales + Inventory + Audit + 
   }
 
   if (btnApplySalesFilters) btnApplySalesFilters.onclick = renderSales;
+  function iso(v) {return String(v || "");}
+  function newer(a, b) {
+    // retorna true se a.updatedAt é mais recente que b.updatedAt
+    return iso(a === null || a === void 0 ? void 0 : a.updatedAt) > iso(b === null || b === void 0 ? void 0 : b.updatedAt);
+  }
+
+  function mergeById_LWW(localArr, remoteArr) {
+    const map = new Map();
+    (Array.isArray(localArr) ? localArr : []).forEach(x => {
+      if (!(x !== null && x !== void 0 && x.id)) return;
+      map.set(x.id, x);
+    });
+
+    (Array.isArray(remoteArr) ? remoteArr : []).forEach(r => {
+      if (!(r !== null && r !== void 0 && r.id)) return;
+      const cur = map.get(r.id);
+      if (!cur) {
+        map.set(r.id, r);
+      } else {
+        // Last-write-wins
+        map.set(r.id, newer(r, cur) ? r : cur);
+      }
+    });
+
+    return Array.from(map.values());
+  }
+
+  // Para coleções "append-only" (não substituir: apenas unir)
+  function mergeUnionById(localArr, remoteArr) {
+    const map = new Map();
+    (Array.isArray(localArr) ? localArr : []).forEach(x => (x === null || x === void 0 ? void 0 : x.id) && map.set(x.id, x));
+    (Array.isArray(remoteArr) ? remoteArr : []).forEach(x => (x === null || x === void 0 ? void 0 : x.id) && !map.has(x.id) && map.set(x.id, x));
+    return Array.from(map.values());
+  }
+
+  function mergeDB(localDB, remoteDB) {
+    const L = ensureAllUpdatedAt(normalizeDB(localDB));
+    const R = ensureAllUpdatedAt(normalizeDB(remoteDB));
+
+    // entidades "stateful" → LWW por updatedAt
+    L.users = mergeById_LWW(L.users, R.users);
+    L.products = mergeById_LWW(L.products, R.products);
+    L.clients = mergeById_LWW(L.clients, R.clients);
+    L.accounts = mergeById_LWW(L.accounts, R.accounts);
+    L.sales = mergeById_LWW(L.sales, R.sales);
+    L.purchases = mergeById_LWW(L.purchases, R.purchases);
+
+    // append-only → união por ID
+    L.ledger = mergeUnionById(L.ledger, R.ledger);
+    L.inventory = mergeUnionById(L.inventory, R.inventory);
+    L.audit = mergeUnionById(L.audit, R.audit);
+
+    // settings/online: preferir local (não sobrescrever config do device)
+    L.settings = L.settings || { autoSnapshots: true, snapshotRetention: 30 };
+    L.online = L.online || { enabled: false, url: "", key: "" };
+
+    // meta
+    L.meta = L.meta || {};
+    L.meta.updatedAt = nowISO();
+    return L;
+  }
 
   /* =======================
      Supabase snapshots
@@ -1994,8 +2876,8 @@ alert("JS carregado ✅ Gestão Fácil - V1 (BASE + Sales + Inventory + Audit + 
     saveDBTouch();
   }
 
-  async function pushSnapshot(trigger) {var _db$online, _db$settings;
-    if (!((_db$online = db.online) !== null && _db$online !== void 0 && _db$online.enabled)) throw new Error("Supabase não está ativo.");
+  async function pushSnapshot(trigger) {var _db$online3, _db$settings;
+    if (!((_db$online3 = db.online) !== null && _db$online3 !== void 0 && _db$online3.enabled)) throw new Error("Supabase não está ativo.");
     const url = db.online.url;
     const key = db.online.key;
     if (!url || !key) throw new Error("Config Supabase incompleta.");
@@ -2033,8 +2915,8 @@ alert("JS carregado ✅ Gestão Fácil - V1 (BASE + Sales + Inventory + Audit + 
     logAction("backup.snapshot", "snapshot", "", { trigger });
   }
 
-  async function pullLatestSnapshot() {var _db$online2;
-    if (!((_db$online2 = db.online) !== null && _db$online2 !== void 0 && _db$online2.enabled)) throw new Error("Supabase não está ativo.");
+  async function pullLatestSnapshot() {var _db$online4;
+    if (!((_db$online4 = db.online) !== null && _db$online4 !== void 0 && _db$online4.enabled)) throw new Error("Supabase não está ativo.");
     const url = db.online.url;
     const key = db.online.key;
     if (!url || !key) throw new Error("Config Supabase incompleta.");
@@ -2052,9 +2934,9 @@ alert("JS carregado ✅ Gestão Fácil - V1 (BASE + Sales + Inventory + Audit + 
     return rows[0];
   }
 
-  function autoSnapshot(trigger) {var _db$settings2, _db$online3;
+  function autoSnapshot(trigger) {var _db$settings2, _db$online5;
     if (!((_db$settings2 = db.settings) !== null && _db$settings2 !== void 0 && _db$settings2.autoSnapshots)) return;
-    if (!((_db$online3 = db.online) !== null && _db$online3 !== void 0 && _db$online3.enabled)) return;
+    if (!((_db$online5 = db.online) !== null && _db$online5 !== void 0 && _db$online5.enabled)) return;
 
     debounce("autoSnap", 45000, async () => {
       try {
@@ -2108,54 +2990,7 @@ alert("JS carregado ✅ Gestão Fácil - V1 (BASE + Sales + Inventory + Audit + 
     };
   }
 
-  // Topbar buttons
-  if (btnBackup) {
-    btnBackup.onclick = async () => {
-      try {var _db$online4;
-        if (!session) return alert("Faça login primeiro.");
-        if (!((_db$online4 = db.online) !== null && _db$online4 !== void 0 && _db$online4.enabled)) return alert("Ative o Supabase em Config.");
-        await pushSnapshot("manual_topbar");
-        alert("Backup guardado ✅");
-      } catch (e) {
-        alert("Erro Backup: " + (e.message || e));
-      }
-    };
-  }
 
-  if (btnSync) {
-    btnSync.onclick = async () => {
-      try {var _db$online5;
-        if (!session) return alert("Faça login primeiro.");
-        if (!((_db$online5 = db.online) !== null && _db$online5 !== void 0 && _db$online5.enabled)) return alert("Ative o Supabase em Config.");
-
-        if (!confirm("Isto vai substituir a base local por um backup mais recente da nuvem. Continuar?")) return;
-
-        const latest = await pullLatestSnapshot();
-        save(DB_KEY, latest.payload);
-
-        db = load(DB_KEY, emptyDB());
-        db.inventory = db.inventory || [];
-        db.audit = db.audit || [];
-        db.settings = db.settings || { autoSnapshots: true, snapshotRetention: 30 };
-        db.online = db.online || db.online;
-
-        renderPOS();
-        renderProducts();
-        renderClients();
-        renderAccounts();
-        renderLedger();
-        renderInventory();
-        renderSales();
-        renderAudit();
-        renderSettings();
-
-        alert("Sync (restore) concluído ✅");
-        logAction("sync.restore_latest", "snapshot", "", { created_at: latest.created_at });
-      } catch (e) {
-        alert("Erro Sync: " + (e.message || e));
-      }
-    };
-  }
 
   /* =======================
      Settings (Config view)
@@ -2180,6 +3015,200 @@ alert("JS carregado ✅ Gestão Fácil - V1 (BASE + Sales + Inventory + Audit + 
   function setSbMsg(m) {if (sbMsg) sbMsg.textContent = m || "";}
   function setSettingsMsg(m) {if (settingsMsg) settingsMsg.textContent = m || "";}
   function setJsonMsg(m) {if (jsonMsg) jsonMsg.textContent = m || "";}
+
+
+  function canManageUsers() {var _session4;
+    return ((_session4 = session) === null || _session4 === void 0 ? void 0 : _session4.role) === "admin";
+  }
+
+  let editingUserId = null;
+
+  function renderUsersManagement() {
+    const usersTable = el("usersTable");
+    const usersCount = el("usersCount");
+    const usrMsg = el("usrMsg");
+
+    const usrFormTitle = el("usrFormTitle");
+    const usrName = el("usrName");
+    const usrRole = el("usrRole");
+    const usrPin = el("usrPin");
+    const usrQ = el("usrQ");
+    const usrA = el("usrA");
+
+    const btnSaveUser = el("btnSaveUser");
+    const btnCancelUserEdit = el("btnCancelUserEdit");
+    const btnRefreshUsers = el("btnRefreshUsers");
+
+    if (!usersTable || !btnSaveUser) return;
+
+    // Bloqueio por permissão
+    const disabled = !canManageUsers();
+    [usrName, usrRole, usrPin, usrQ, usrA, btnSaveUser].forEach(x => {if (x) x.disabled = disabled;});
+    if (usrMsg) usrMsg.textContent = disabled ? "Apenas admin pode gerir utilizadores." : "";
+
+    const clearForm = () => {
+      editingUserId = null;
+      if (usrFormTitle) usrFormTitle.textContent = "Criar Utilizador";
+      if (usrName) usrName.value = "";
+      if (usrRole) usrRole.value = "staff";
+      if (usrPin) usrPin.value = "";
+      if (usrQ) usrQ.value = "";
+      if (usrA) usrA.value = "";
+      if (btnCancelUserEdit) btnCancelUserEdit.style.display = "none";
+      if (usrMsg) usrMsg.textContent = "";
+    };
+
+    const startEdit = u => {
+      editingUserId = u.id;
+      if (usrFormTitle) usrFormTitle.textContent = "Editar Utilizador";
+      if (usrName) usrName.value = u.name || "";
+      if (usrRole) usrRole.value = u.role || "staff";
+      if (usrPin) usrPin.value = ""; // não mostramos PIN
+      if (usrQ) usrQ.value = u.recoveryQ || "";
+      if (usrA) usrA.value = ""; // não mostramos resposta
+      if (btnCancelUserEdit) btnCancelUserEdit.style.display = "inline-flex";
+      if (usrMsg) usrMsg.textContent = "";
+    };
+
+    const renderTable = () => {
+      usersTable.innerHTML = "";
+      const users = (db.users || []).slice().sort((a, b) => String(a.name || "").localeCompare(String(b.name || "")));
+      if (usersCount) usersCount.textContent = `${users.length} utilizador(es)`;
+
+      if (!users.length) {
+        usersTable.innerHTML = `<div class="muted">Sem utilizadores.</div>`;
+        return;
+      }
+
+      users.forEach(u => {
+        const row = document.createElement("div");
+        row.className = "row between";
+        const status = u.active === false ? "🔒" : "✅";
+
+
+        row.innerHTML = `
+        <div>
+          <b>${escapeHTML(u.name || "Sem nome")}</b>
+          <div class="muted">${status} role: <span class="mono">${u.role || "staff"}</span></div>
+        </div>
+        <div class="row gap">
+          <button class="btn ghost" data-act="edit">Editar</button>
+          <button class="btn ghost" data-act="role">Role</button>
+          <button class="btn ghost" data-act="pin">Reset PIN</button>
+          <button class="btn ${u.disabled ? "" : "danger"}" data-act="toggle">${u.disabled ? "Ativar" : "Desativar"}</button>
+        </div>
+      `;
+
+        // actions
+        row.querySelector('[data-act="edit"]').onclick = () => startEdit(u);
+
+        row.querySelector('[data-act="role"]').onclick = () => {
+          if (!canManageUsers()) return;
+          const newRole = prompt("Novo role (admin/manager/staff):", u.role || "staff");
+          if (!newRole) return;
+          const v = newRole.trim().toLowerCase();
+          if (!["admin", "manager", "staff"].includes(v)) return alert("Role inválido.");
+          u.role = v;
+          u.updatedAt = nowISO();
+          saveDBTouch();
+          logAction("user.role", "user", u.id, { role: v });
+          renderTable();
+          refreshUsersDropdown();
+        };
+
+        row.querySelector('[data-act="pin"]').onclick = () => {
+          if (!canManageUsers()) return;
+          if (!confirm(`Reset PIN de "${u.name}"?`)) return;
+          u.pin = ""; // forçar definir novo
+          u.mustChangePin = true; // obriga a trocar no próximo login (se tiveres essa lógica)
+          u.updatedAt = nowISO();
+          saveDBTouch();
+          logAction("user.resetPin", "user", u.id, {});
+          alert("PIN resetado. Defina um novo PIN (editar utilizador).");
+          renderTable();
+          refreshUsersDropdown();
+        };
+
+        row.querySelector('[data-act="toggle"]').onclick = () => {
+          if (!canManageUsers()) return;
+          if (u.id === session.userId && u.active !== false)
+          {
+            return alert("Não podes desativar o teu próprio utilizador.");
+          }
+          u.active = u.active === false ? true : false;
+
+          u.updatedAt = nowISO();
+          saveDBTouch();
+          logAction("user.toggle", "user", u.id, { disabled: u.disabled });
+          renderTable();
+          refreshUsersDropdown();
+        };
+
+        // bloquear botões se não for admin
+        if (!canManageUsers()) {
+          row.querySelectorAll("button").forEach(b => b.disabled = true);
+        }
+
+        usersTable.appendChild(row);
+      });
+    };
+
+    // listeners 1x
+    btnRefreshUsers.onclick = () => renderTable();
+
+    btnCancelUserEdit.onclick = () => clearForm();
+
+    btnSaveUser.onclick = () => {
+      if (!canManageUsers()) return;
+
+      const name = ((usrName === null || usrName === void 0 ? void 0 : usrName.value) || "").trim();
+      const role = ((usrRole === null || usrRole === void 0 ? void 0 : usrRole.value) || "staff").trim();
+      const pin = ((usrPin === null || usrPin === void 0 ? void 0 : usrPin.value) || "").trim();
+      const q = ((usrQ === null || usrQ === void 0 ? void 0 : usrQ.value) || "").trim();
+      const a = ((usrA === null || usrA === void 0 ? void 0 : usrA.value) || "").trim();
+
+      if (!name) return usrMsg.textContent = "Nome é obrigatório.";
+      if (!["admin", "manager", "staff"].includes(role)) return usrMsg.textContent = "Role inválido.";
+
+      if (!editingUserId) {
+        if (!pin || pin.length < 4) return usrMsg.textContent = "PIN obrigatório (mín. 4 dígitos).";
+        const u = {
+          id: uid(),
+          name,
+          role,
+          pin,
+          recoveryQ: q || "",
+          recoveryA: a || "",
+          disabled: false,
+          createdAt: nowISO(),
+          updatedAt: nowISO() };
+
+        db.users.push(u);
+        saveDBTouch();
+        logAction("user.create", "user", u.id, { role });
+        usrMsg.textContent = "Utilizador criado ✅";
+      } else {
+        const u = db.users.find(x => x.id === editingUserId);
+        if (!u) return usrMsg.textContent = "Utilizador não encontrado.";
+        u.name = name;
+        u.role = role;
+        if (pin) {u.pin = pin;u.mustChangePin = false;} // só altera se preencher
+        if (q) u.recoveryQ = q;
+        if (a) u.recoveryA = a;
+        u.updatedAt = nowISO();
+        saveDBTouch();
+        logAction("user.update", "user", u.id, { role });
+        usrMsg.textContent = "Utilizador atualizado ✅";
+      }
+
+      clearForm();
+      renderTable();
+      refreshUsersDropdown();
+    };
+
+    renderTable();
+    clearForm();
+  }
 
   function renderSettings() {var _db$online6, _db$online7, _db$settings3, _db$settings$snapshot, _db$settings4, _db$online8;
     if (sbUrl) sbUrl.value = ((_db$online6 = db.online) === null || _db$online6 === void 0 ? void 0 : _db$online6.url) || "";
@@ -2240,6 +3269,8 @@ alert("JS carregado ✅ Gestão Fácil - V1 (BASE + Sales + Inventory + Audit + 
       saveDBTouch();
       setSettingsMsg("Settings guardadas ✅");
       logAction("settings.update", "settings", "", { autoSnapshots: db.settings.autoSnapshots, retention: db.settings.snapshotRetention });
+
+
     };
   }
 
@@ -2362,16 +3393,52 @@ alert("JS carregado ✅ Gestão Fácil - V1 (BASE + Sales + Inventory + Audit + 
   if (btnAuditRefresh) btnAuditRefresh.onclick = renderAudit;
   if (btnAuditFilter) btnAuditFilter.onclick = renderAudit;
 
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "hidden") {var _db$settings5, _db$online10;
+      if ((_db$settings5 = db.settings) !== null && _db$settings5 !== void 0 && _db$settings5.autoSnapshots && (_db$online10 = db.online) !== null && _db$online10 !== void 0 && _db$online10.enabled) {
+        autoSnapshot("visibility_exit");
+      }
+    }
+  });
+
+
   /* =======================
      Boot
   ======================= */
+  // ===== Dev/Test: expor relatorios no console (nao interfere no app)
+  window.GFReports = {
+    all: filters => rep_all(filters),
+    salesSummary: filters => rep_salesSummary(filters),
+    salesTimeseries: filters => rep_salesTimeseries(filters),
+    salesByProduct: filters => rep_salesByProduct(filters),
+    salesByClient: filters => rep_salesByClient(filters),
+    purchasesSummary: filters => rep_purchasesSummary(filters),
+    purchasesBySupplier: filters => rep_purchasesBySupplier(filters),
+    cashflow: filters => rep_cashflow(filters),
+    accountBalances: filters => rep_accountBalances(filters),
+    inventoryStatus: () => rep_inventoryStatus(),
+    inventoryMovements: filters => rep_inventoryMovements(filters),
+    audit: filters => rep_auditSummary(filters) };
+
+
   refreshUsersDropdown();
   renderSettings();
 
   // auto snapshot leve ao abrir (se online + auto)
-  if ((_db$online10 = db.online) !== null && _db$online10 !== void 0 && _db$online10.enabled && (_db$settings5 = db.settings) !== null && _db$settings5 !== void 0 && _db$settings5.autoSnapshots) {
-    debounce("dailySnap", 4000, () => autoSnapshot("daily_open"));
+  if ((_db$online11 = db.online) !== null && _db$online11 !== void 0 && _db$online11.enabled && (_db$settings6 = db.settings) !== null && _db$settings6 !== void 0 && _db$settings6.autoSnapshots) {
+    debounce("dailySnap", 4000, async () => {
+      try {
+        if (!shouldRunDailySnapshot()) return;
+        await pushSnapshot("daily_open");
+        markDailySnapshotDone();
+      } catch (e) {
+        logAction("backup.fail", "", "", { error: String((e === null || e === void 0 ? void 0 : e.message) || e) });
+      }
+    });
   }
+
+  console.log("GF: script carregou até ao fim ✅");
+  window.openView = openView;
 
   if (session) {
     showMain();

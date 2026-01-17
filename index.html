@@ -489,9 +489,122 @@
 
       <!-- Reports -->
       <section class="view" id="view-reports" style="display:none">
-        <h2>Relatórios</h2>
-        <div class="card">Em construção</div>
-      </section>
+      <div class="card">
+  <div class="row between">
+    <div>
+      <h2 style="margin:0">Relatórios</h2>
+      <div class="muted">Vendas • Caixa • Stock</div>
+    </div>
+    <button class="btn" id="btnRunReports">Atualizar</button>
+  </div>
+
+  <div class="row gap wrap" style="margin-top:10px">
+    <div class="field">
+      <label>De</label>
+      <input class="input" type="date" id="repFrom">
+    </div>
+    <div class="field">
+      <label>Até</label>
+      <input class="input" type="date" id="repTo">
+    </div>
+    <div class="field">
+      <label>Período</label>
+      <select class="input" id="repPeriod">
+        <option value="day">Dia</option>
+        <option value="week">Semana</option>
+        <option value="month" selected>Mês</option>
+      </select>
+    </div>
+  </div>
+</div>
+
+<div class="grid-3" style="margin-top:12px">
+  <div class="card">
+    <div class="muted">Vendas (Total)</div>
+    <div class="big mono" id="repSalesTotal">—</div>
+    <div class="muted" id="repSalesMeta">—</div>
+  </div>
+
+  <div class="card">
+    <div class="muted">Caixa (Saldo no período)</div>
+    <div class="big mono" id="repCashNet">—</div>
+    <div class="muted" id="repCashMeta">—</div>
+  </div>
+
+  <div class="card">
+    <div class="muted">Stock baixo</div>
+    <div class="big mono" id="repLowStock">—</div>
+    <div class="muted">produtos</div>
+  </div>
+</div>
+
+<div class="card" style="margin-top:12px">
+  <h3 style="margin:0 0 8px">Top Produtos</h3>
+  <div id="repTopProducts"></div>
+</div>
+        <div class="card" style="margin-top:12px">
+  <h3 style="margin:0 0 8px">Fluxo de Caixa (por período)</h3>
+  <div id="repCashTable"></div>
+</div>
+        <div class="grid-2" style="margin-top:12px">
+  <div class="card">
+    <div class="muted">Compras (Total)</div>
+    <div class="big mono" id="repPurchasesTotal">—</div>
+    <div class="muted" id="repPurchasesMeta">—</div>
+  </div>
+
+  <div class="card">
+    <h3 style="margin:0 0 8px">Compras por Fornecedor</h3>
+    <div id="repPurchasesBySupplier"></div>
+  </div>
+</div>
+
+        <div class="grid-2" style="margin-top:12px">
+
+  <!-- Vendas por Cliente -->
+  <div class="card">
+    <h3>Vendas por Cliente</h3>
+    <div id="repSalesByClient"></div>
+  </div>
+
+  <!-- Compras (Resumo) -->
+  <div class="card">
+    <h3>Compras (Resumo)</h3>
+    <div id="repPurchasesSummary"></div>
+  </div>
+
+</div>
+
+<div class="grid-2" style="margin-top:12px">
+
+ 
+
+  <!-- Saldos por Conta -->
+  <div class="card">
+    <h3>Saldos por Conta</h3>
+    <div id="repAccountBalances"></div>
+  </div>
+
+</div>
+
+<div class="grid-2" style="margin-top:12px">
+
+  <!-- Movimentos de Inventário -->
+  <div class="card">
+    <h3>Movimentos de Inventário</h3>
+    <div id="repInventoryMovements"></div>
+  </div>
+
+  <!-- Auditoria (Resumo) -->
+  <div class="card">
+    <h3>Auditoria (Resumo)</h3>
+    <div id="repAuditSummary"></div>
+  </div>
+
+</div>
+
+</section>
+
 
       <!-- Audit -->
       <section class="view" id="view-audit" style="display:none">
@@ -575,6 +688,49 @@
           </div>
 
           <hr class="sep" />
+<hr class="sep" />
+
+<h3>Utilizadores</h3>
+
+<div class="grid2" style="grid-template-columns:1fr 1fr; gap:12px; margin-top:10px">
+
+  <div class="card" style="margin:0">
+    <h4 id="usrFormTitle" style="margin:0 0 10px">Criar Utilizador</h4>
+
+    <label class="label">Nome</label>
+    <input class="input" id="usrName" placeholder="Ex: Caixa 1" />
+
+    <label class="label" style="margin-top:10px">Role</label>
+    <select class="input" id="usrRole">
+      <option value="admin">admin</option>
+      <option value="manager">manager</option>
+      <option value="staff" selected>staff</option>
+    </select>
+
+    <label class="label" style="margin-top:10px">PIN</label>
+    <input class="input" id="usrPin" type="password" inputmode="numeric" placeholder="••••" />
+
+    <div class="row gap mt">
+      <button class="btn primary" id="btnSaveUser">Guardar</button>
+      <button class="btn ghost" id="btnCancelUserEdit" style="display:none">Cancelar</button>
+    </div>
+
+    <p class="muted" id="usrMsg"></p>
+  </div>
+
+  <div class="card" style="margin:0">
+    <div class="row between" style="align-items:center">
+      <h4 style="margin:0">Lista de Utilizadores</h4>
+      <button class="btn ghost" id="btnRefreshUsers">Atualizar</button>
+    </div>
+
+    <div class="table" id="usersTable" style="margin-top:10px"></div>
+    <p class="muted" id="usersCount"></p>
+  </div>
+
+</div>
+
+
 
           <h3>Export / Import</h3>
           <div class="row gap">
