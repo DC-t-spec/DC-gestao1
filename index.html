@@ -3,6 +3,17 @@
 
   <head>
     <meta charset="UTF-8">
+    <title>Untitled</title>
+    <link rel="stylesheet" href="./style.css">
+
+  </head>
+    
+  <body>
+  <html lang="pt">
+
+
+  <head>
+    <meta charset="UTF-8">
     <title>projecto DC2</title>
     <link rel="stylesheet" href="./style.css">
 
@@ -82,7 +93,9 @@
 
     <!-- Sidebar -->
     <aside class="sidebar">
-      <button class="nav active" data-view="pos">Vendas</button>
+      <button class="nav" data-view="home">Home</button>
+
+   <button class="nav" data-view="pos">Vendas</button>
       <button class="nav" data-view="purchases">Compras</button>
       <button class="nav" data-view="stock">Stock</button>
       <button class="nav" data-view="products">Produtos</button>
@@ -97,7 +110,9 @@
     <main class="content">
       <!-- Mobile Bottom Nav -->
 <nav class="mnav" id="mnav">
-  <button class="mnav-btn active" data-view="pos">Vendas</button>
+<button class="mnav-btn" data-view="home">Home</button>
+
+ <button class="mnav-btn " data-view="pos">Vendas</button>
   <button class="mnav-btn" data-view="purchases">Compras</button>
   <button class="mnav-btn" data-view="stock">Stock</button>
   <button class="mnav-btn" data-view="products">Produtos</button>
@@ -112,6 +127,8 @@
       <b>Mais</b>
       <button class="btn ghost" id="btnCloseMore">Fechar</button>
     </div>
+    <button class="sheet-item" data-view="home">Home</button>
+
 
     <button class="sheet-item" data-view="clients">Clientes</button>
     <button class="sheet-item" data-view="reports">Relatórios</button>
@@ -120,6 +137,48 @@
   </div>
 </div>
 
+<!-- Home / Dashboard -->
+<section class="view" id="view-home" style="display:none">
+  <div class="view-head">
+    <h2>Dashboard</h2>
+    <div class="row gap">
+      <button class="btn" id="btnHomeRefresh">Atualizar</button>
+    </div>
+  </div>
+
+  <div class="grid-3" style="margin-top:12px">
+    <div class="card">
+      <div class="muted">Vendas (período)</div>
+      <div class="big mono" id="homeSalesTotal">—</div>
+      <div class="muted" id="homeSalesMeta">—</div>
+    </div>
+
+    <div class="card">
+      <div class="muted">Compras (período)</div>
+      <div class="big mono" id="homePurchasesTotal">—</div>
+      <div class="muted" id="homePurchasesMeta">—</div>
+    </div>
+
+    <div class="card">
+      <div class="muted">Lucro (Bruto)</div>
+      <div class="big mono" id="homeProfit">—</div>
+      <div class="muted" id="homeProfitMeta">—</div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-top:12px">
+    <h3 style="margin:0 0 8px">Top Produtos (período)</h3>
+    <div id="homeTopProducts">—</div>
+  </div>
+
+  <div class="card" style="margin-top:12px">
+    <h3 style="margin:0 0 8px">Caixa (Saldo do período)</h3>
+    <div class="big mono" id="homeCashNet">—</div>
+    <div class="muted" id="homeCashMeta">—</div>
+  </div>
+
+  <p class="muted" id="homeHint" style="margin-top:10px"></p>
+</section>
 
       <!-- POS -->
       <section class="view" id="view-pos" style="display:none">
@@ -518,12 +577,20 @@
   </div>
 </div>
 
-<div class="grid-3" style="margin-top:12px">
+<div class="grid-4" style="margin-top:12px">
   <div class="card">
     <div class="muted">Vendas (Total)</div>
     <div class="big mono" id="repSalesTotal">—</div>
-    <div class="muted" id="repSalesMeta">—</div>
+    <div class="muted" id="repSalesMeta">—
+    </div>
   </div>
+  
+  <div class="card">
+  <div class="muted">Lucro (Bruto)</div>
+  <div class="big mono" id="repProfit">—</div>
+  <div class="muted" id="repProfitMeta">—</div>
+</div>
+
 
   <div class="card">
     <div class="muted">Caixa (Saldo no período)</div>
@@ -745,6 +812,11 @@
     </main>
   </section>
 </div>
+    <script  src="./script.js"></script>
+
+  </body>
+  
+</html>
     <script  src="./script.js"></script>
 
   </body>

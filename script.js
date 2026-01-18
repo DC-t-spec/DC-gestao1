@@ -1,4 +1,4 @@
-alert("Seja bem vindo/a ✅ Gestão Fácil ---DC---");
+alert("✅ Gestão Fácil---DC--- ");
 
 (() => {
   "use strict";
@@ -306,6 +306,50 @@ alert("Seja bem vindo/a ✅ Gestão Fácil ---DC---");
     filters.to = filters.to ? rep_toDateOnly(filters.to) : null;
     return filters;
   }
+  // Compat: evita crash se algum bloco antigo chamar _normFilters
+  function _normFilters(f) {return rep_normFilters(f);}
+
+  // ===== R13: Lucro (Resumo) — versão robusta (sem rep_normFilters) =====
+  function rep_profitSummary(filters) {
+    const f = {
+      from: null,
+      to: null,
+      includeCancelled: false,
+      ...(filters || {}) };
+
+
+    // normaliza datas
+    f.from = f.from ? rep_toDateOnly(f.from) : null;
+    f.to = f.to ? rep_toDateOnly(f.to) : null;
+
+    const sales = rep_safeArr(db && db.sales).filter(s => {
+      if (!f.includeCancelled && rep_saleIsCancelled(s)) return false;
+      const d = rep_saleDate(s);
+      if (f.from || f.to) if (!rep_inRange(d, f.from, f.to)) return false;
+      return true;
+    });
+
+    const prodMap = new Map(rep_safeArr(db && db.products).map(p => [p.id, p]));
+
+    const revenue = rep_sum(sales, rep_saleTotal);
+
+    // COGS (custo dos itens vendidos) baseado em product.cost
+    const cogs = rep_sum(sales, (s) =>
+    rep_sum(rep_saleItems(s), it => {
+      const qty = Number(it.qty || 0) || 0;
+      const pid = it.productId || "";
+      const p = prodMap.get(pid);
+      const unitCost = Number(p && p.cost ? p.cost : 0) || 0;
+      return qty * unitCost;
+    }));
+
+
+    const profit = revenue - cogs;
+    const margin = revenue > 0 ? profit / revenue : 0;
+
+    return { revenue, cogs, profit, margin };
+  }
+
 
   // ===== Extractors (ajustados ao TEU db real) =====
   function rep_saleIsCancelled(s) {return (s === null || s === void 0 ? void 0 : s.status) === "cancelled";}
@@ -498,9 +542,14 @@ alert("Seja bem vindo/a ✅ Gestão Fácil ---DC---");
     return rows;
   }
 
+  // ===== R13: Lucro (Resumo) =====
+  // lucro = vendas - custo dos itens vendidos (COGS)
+  // COGS usa (product.cost) como custo unitário atual do produto.
+  // Se um produto não tiver cost, assume 0.
   // ===== R7: Fluxo de Caixa (ledger) =====
   function rep_cashflow(filters) {var _db9;
-    const f = rep_normFilters(filters);
+    const f =
+    _normFilters(filters);
     const led = rep_safeArr((_db9 = db) === null || _db9 === void 0 ? void 0 : _db9.ledger).filter(l => {
       const d = rep_ledgerDate(l);
       if (f.from || f.to) if (!rep_inRange(d, f.from, f.to)) return false;
@@ -627,6 +676,7 @@ alert("Seja bem vindo/a ✅ Gestão Fácil ---DC---");
       accountBalances: rep_accountBalances(filters),
       inventoryStatus: rep_inventoryStatus(),
       inventoryMovements: rep_inventoryMovements(filters),
+      profitSummary: filters => rep_profitSummary(filters),
       audit: rep_auditSummary(filters) };
 
   }
@@ -887,7 +937,7 @@ alert("Seja bem vindo/a ✅ Gestão Fácil ---DC---");
 
       showMain();
       initNav();
-      openView("pos");
+      openView("home");
 
       logAction("auth.login", "user", user.id, { role: user.role });
     });
@@ -926,6 +976,8 @@ alert("Seja bem vindo/a ✅ Gestão Fácil ---DC---");
         renderPurchases();
       }
       if (viewKey === "stock") renderStockView();
+      if (viewKey === "home") renderHome();
+
       if (viewKey === "audit") renderAudit();
       if (viewKey === "settings") {
         renderSettings();
@@ -933,6 +985,7 @@ alert("Seja bem vindo/a ✅ Gestão Fácil ---DC---");
       }
 
       if (viewKey === "reports") renderReports();
+      if (viewKey === "home") renderHome();
     } catch (e) {
       console.error(e);
       alert(e.message || e);
@@ -946,6 +999,93 @@ alert("Seja bem vindo/a ✅ Gestão Fácil ---DC---");
   /* =======================
     Reports UI (Fase C) — FIXED
   ======================= */
+  function renderHome() {
+    // ajuda: se der erro, aparece no console
+    try {var _window$GFReports, _window$GFReports$sal, _window$GFReports2, _window$GFReports2$pu, _window$GFReports3, _window$GFReports3$pr, _window$GFReports4, _window$GFReports4$ca, _window$GFReports5, _window$GFReports5$sa;
+      const byId = id => document.getElementById(id);
+
+      // ---- período default: mês atual até hoje ----
+      const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+      const from = today.slice(0, 8) + "01";
+      const to = today;
+
+      const filters = { from, to, period: "month" };
+
+      // ---- chama motor de relatórios ----
+      const s = ((_window$GFReports = window.GFReports) === null || _window$GFReports === void 0 ? void 0 : (_window$GFReports$sal = _window$GFReports.salesSummary) === null || _window$GFReports$sal === void 0 ? void 0 : _window$GFReports$sal.call(_window$GFReports, filters)) || {};
+      const p = ((_window$GFReports2 = window.GFReports) === null || _window$GFReports2 === void 0 ? void 0 : (_window$GFReports2$pu = _window$GFReports2.purchasesSummary) === null || _window$GFReports2$pu === void 0 ? void 0 : _window$GFReports2$pu.call(_window$GFReports2, filters)) || {};
+      const pr = ((_window$GFReports3 = window.GFReports) === null || _window$GFReports3 === void 0 ? void 0 : (_window$GFReports3$pr = _window$GFReports3.profitSummary) === null || _window$GFReports3$pr === void 0 ? void 0 : _window$GFReports3$pr.call(_window$GFReports3, filters)) || {};
+      const cashRows = ((_window$GFReports4 = window.GFReports) === null || _window$GFReports4 === void 0 ? void 0 : (_window$GFReports4$ca = _window$GFReports4.cashflow) === null || _window$GFReports4$ca === void 0 ? void 0 : _window$GFReports4$ca.call(_window$GFReports4, filters)) || [];
+      const top = ((_window$GFReports5 = window.GFReports) === null || _window$GFReports5 === void 0 ? void 0 : (_window$GFReports5$sa = _window$GFReports5.salesByProduct) === null || _window$GFReports5$sa === void 0 ? void 0 : _window$GFReports5$sa.call(_window$GFReports5, filters)) || [];
+
+      // ---- preencher cards ----
+      if (byId("homeSalesTotal")) byId("homeSalesTotal").textContent = MT(s.totalRevenue || 0);
+      if (byId("homeSalesMeta")) byId("homeSalesMeta").textContent =
+      `${s.numSales || 0} vendas • ${from} → ${to}`;
+
+      if (byId("homePurchasesTotal")) byId("homePurchasesTotal").textContent = MT(p.totalSpent || 0);
+      if (byId("homePurchasesMeta")) byId("homePurchasesMeta").textContent =
+      `${p.numPurchases || 0} compras • ${from} → ${to}`;
+
+      if (byId("homeProfit")) byId("homeProfit").textContent = MT(pr.profit || 0);
+      if (byId("homeProfitMeta")) byId("homeProfitMeta").textContent =
+      `Margem: ${Math.round((pr.margin || 0) * 100)}% • CMV: ${MT(pr.cogs || 0)}`;
+
+      // ---- caixa net do período ----
+      const cashIn = (cashRows || []).reduce((a, r) => a + (Number(r.inflow || 0) || 0), 0);
+      const cashOut = (cashRows || []).reduce((a, r) => a + (Number(r.outflow || 0) || 0), 0);
+      const cashNet = (cashRows || []).reduce((a, r) => a + (Number(r.net || 0) || 0), 0);
+
+
+      if (byId("homeCashNet")) byId("homeCashNet").textContent = MT(cashNet);
+      if (byId("homeCashMeta")) byId("homeCashMeta").textContent =
+      `Entradas: ${MT(cashIn)} • Saídas: ${MT(cashOut)}`;
+
+      // ---- top produtos (top 5) ----
+      const top5 = (top || []).slice(0, 5);
+      if (byId("homeTopProducts")) {
+        if (!top5.length) {
+          byId("homeTopProducts").textContent = "—";
+        } else {
+          byId("homeTopProducts").innerHTML = `
+          <div class="table">
+            <div class="tr th">
+              <div>Produto</div><div class="right">Qtd</div><div class="right">Total</div>
+            </div>
+            ${top5.map(r => `
+              <div class="tr">
+             ${top5.map(r => {var _ref2, _r$qty, _ref3, _ref4, _r$total;
+            const nm = r.name || r.productName || r.product || "—";
+            const q = Number((_ref2 = (_r$qty = r.qty) !== null && _r$qty !== void 0 ? _r$qty : r.quantity) !== null && _ref2 !== void 0 ? _ref2 : 0) || 0;
+            const tot = Number((_ref3 = (_ref4 = (_r$total = r.total) !== null && _r$total !== void 0 ? _r$total : r.revenue) !== null && _ref4 !== void 0 ? _ref4 : r.amount) !== null && _ref3 !== void 0 ? _ref3 : 0) || 0;
+            return `
+    <div class="tr">
+      <div>${escapeHTML(nm)}</div>
+      <div class="right">${q}</div>
+      <div class="right mono">${MT(tot)}</div>
+    </div>
+  `;
+          }).join("")}
+
+
+              </div>
+            `).join("")}
+          </div>
+        `;
+        }
+      }
+
+      if (byId("homeHint")) byId("homeHint").textContent =
+      `Resumo do mês atual • ${from} → ${to}`;
+
+      // DEBUG útil (podes apagar depois)
+      console.log("[Home] salesSummary:", s, "purchasesSummary:", p, "profitSummary:", pr);
+
+    } catch (e) {
+      console.error("renderHome() erro:", e);
+    }
+  }
+
   function renderReports() {
     const repFrom = el("repFrom");
     const repTo = el("repTo");
@@ -959,6 +1099,7 @@ alert("Seja bem vindo/a ✅ Gestão Fácil ---DC---");
     const repCashNet = el("repCashNet");
     const repCashMeta = el("repCashMeta");
     const repCashTable = el("repCashTable");
+
 
     const repLowStock = el("repLowStock");
     const repTopProducts = el("repTopProducts");
@@ -1000,6 +1141,13 @@ alert("Seja bem vindo/a ✅ Gestão Fácil ---DC---");
         repSalesMeta.textContent =
         `${s.numSales || 0} venda(s) • ${Math.round(s.itemsSold || 0)} item(s) • Ticket: ${MT(s.avgTicket || 0)}`;
       }
+      const repProfit = el("repProfit");
+      const repProfitMeta = el("repProfitMeta");
+
+      const pr = window.GFReports.profitSummary(filters) || {};
+      if (repProfit) repProfit.textContent = MT(pr.profit || 0);
+      if (repProfitMeta) repProfitMeta.textContent =
+      `Margem: ${Math.round((pr.margin || 0) * 100)}% • CMV: ${MT(pr.cogs || 0)}`;
 
       /* ===== Caixa (Cashflow) ===== */
       const cash = window.GFReports.cashflow(filters) || [];
@@ -1077,6 +1225,7 @@ alert("Seja bem vindo/a ✅ Gestão Fácil ---DC---");
         </div>
       `;
       }
+
 
       /* ===== Compras por Fornecedor ===== */
       if (repPurchasesBySupplier) {
@@ -1194,6 +1343,7 @@ alert("Seja bem vindo/a ✅ Gestão Fácil ---DC---");
 
     if (btnRunReports) btnRunReports.onclick = run;
     run();
+
   }
 
 
@@ -2336,6 +2486,22 @@ alert("Seja bem vindo/a ✅ Gestão Fácil ---DC---");
     if (mcartbar) mcartbar.style.display = isMobile() ? "block" : "none";
 
   }
+  function getUnitCostForSaleItem(productId) {
+    const p = (db.products || []).find(x => x.id === productId && x.active !== false);
+    if (!p) return 0;
+
+    // Se é pacote (consome base)
+    if (p.stockBaseId) {
+      const base = (db.products || []).find(x => x.id === p.stockBaseId && x.active !== false);
+      const baseCost = Number((base === null || base === void 0 ? void 0 : base.cost) || 0) || 0;
+      const factor = Number(p.stockFactor || 0) || 0;
+      // custo do pacote = custo base * fator
+      return baseCost * factor;
+    }
+
+    // Produto normal
+    return Number(p.cost || 0) || 0;
+  }
 
   function validateAndApplyStockForSale(enrichedItems) {
     // valida
@@ -2384,13 +2550,23 @@ alert("Seja bem vindo/a ✅ Gestão Fácil ---DC---");
         // captura base/factor para estorno perfeito
         const enrichedItems = cart.map(i => {
           const p = (db.products || []).find(x => x.id === i.productId) || {};
+
+          const price = Number(
+          i.price !== undefined && i.price !== null && i.price !== "" ? i.price : p.price || 0) ||
+          0;
+
+          const name = i.name && String(i.name).trim() ? String(i.name).trim() :
+          p.name && String(p.name).trim() ? String(p.name).trim() :
+          "—";
+
           return {
             productId: i.productId,
-            name: i.name,
-            price: Number(i.price || 0),
-            qty: Number(i.qty || 1),
+            name,
+            price, // ✅ garantido número
+            qty: Number(i.qty || 1) || 1,
+
             stockBaseId: p.stockBaseId || "",
-            stockFactor: Number(p.stockFactor || 0) };
+            stockFactor: Number(p.stockFactor || 0) || 0 };
 
         });
 
@@ -3419,10 +3595,10 @@ alert("Seja bem vindo/a ✅ Gestão Fácil ---DC---");
     inventoryStatus: () => rep_inventoryStatus(),
     inventoryMovements: filters => rep_inventoryMovements(filters),
     audit: filters => rep_auditSummary(filters) };
-
-
+  profitSummary: filters => rep_profitSummary(filters),
   refreshUsersDropdown();
   renderSettings();
+
 
   // auto snapshot leve ao abrir (se online + auto)
   if ((_db$online11 = db.online) !== null && _db$online11 !== void 0 && _db$online11.enabled && (_db$settings6 = db.settings) !== null && _db$settings6 !== void 0 && _db$settings6.autoSnapshots) {
@@ -3436,6 +3612,9 @@ alert("Seja bem vindo/a ✅ Gestão Fácil ---DC---");
       }
     });
   }
+  window.GFReports = window.GFReports || {};
+  window.GFReports.profitSummary = filters => rep_profitSummary(filters);
+
 
   console.log("GF: script carregou até ao fim ✅");
   window.openView = openView;
@@ -3443,8 +3622,13 @@ alert("Seja bem vindo/a ✅ Gestão Fácil ---DC---");
   if (session) {
     showMain();
     initNav();
-    openView("pos");
+    openView("home");
   } else {
     showAuth();
+    // Home: botão atualizar
+    const btnHomeRefresh = document.getElementById("btnHomeRefresh");
+    if (btnHomeRefresh) btnHomeRefresh.addEventListener("click", () => {
+      try {renderHome();} catch (e) {console.error("renderHome() falhou:", e);}
+    });
   }
 })();
