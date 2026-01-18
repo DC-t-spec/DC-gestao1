@@ -2,14 +2,14 @@
 const CACHE_VERSION = "gf-v1.0.9"; // MUDA este valor sempre que fizeres update
 
 const APP_SHELL = [
-  "./",
-  "./index.html",
-  "./style.css",
-  "./script.js",
-  "./manifest.webmanifest",
-  "./icons/icon-192.png",
-  "./icons/icon-512.png"
+  "/DC-gestao1/",
+  "/DC-gestao1/index.html",
+  "/DC-gestao1/script.js",
+  "/DC-gestao1/manifest.webmanifest",
+  "/DC-gestao1/icons/icon-192.png",
+  "/DC-gestao1/icons/icon-512.png"
 ];
+
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
