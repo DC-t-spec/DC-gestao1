@@ -1,4 +1,4 @@
-alert("JS carregado ✅ Gestão Fácil - V1 (BASE + Sales + Inventory + Audit + Snapshots)");
+alert("Seja bem vindo/a ✅ Gestão Fácil ---DC---");
 
 (() => {
   "use strict";
