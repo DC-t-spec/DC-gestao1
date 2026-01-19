@@ -1,31 +1,50 @@
+/* =========================
+   DC Gestão - Tema VERDE CLARO (COMPLETO)
+   + Topbar actions sempre à direita
+========================= */
+
 :root{
-  --bg:#0b1220;
-  --card:#101a2e;
-  --muted:#94a3b8;
-  --text:#e5e7eb;
-  --line:#1f2a44;
-  --primary:#38bdf8;
-  --danger:#fb7185;
+  /* Base clara com verde visível */
+  --bg1:#e3f4ea;
+  --bg2:#eaf7f0;
+  --bg3:#f0faf5;
+
+  --card:#fafffc;        /* branco com verde */
+  --muted:#64748b;
+  --text:#0f172a;
+  --line:#cfe8db;
+
+  /* Verde (identidade) */
+  --primary:#16a34a;
+  --primary-dark:#15803d;
   --good:#22c55e;
+
+  /* Alertas */
+  --danger:#dc2626;
 }
 
 *{box-sizing:border-box}
+
 body{
   margin:0;
   font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial;
-  background:linear-gradient(180deg,#070b14,#0b1220);
+  background:linear-gradient(180deg,var(--bg1) 0%, var(--bg2) 40%, var(--bg3) 100%);
   color:var(--text);
 }
 
+/* =======================
+   TOPBAR
+======================= */
 .topbar{
   display:flex;
-  justify-content:space-between;
   align-items:center;
+  justify-content:space-between;
+  width:100%;
   padding:14px 16px;
   border-bottom:1px solid var(--line);
   position:sticky; top:0;
+  background:rgba(230,245,236,.95);
   backdrop-filter: blur(8px);
-  background:rgba(11,18,32,.7);
   z-index:10;
 }
 
@@ -33,71 +52,104 @@ body{
 .logo{
   width:42px;height:42px;border-radius:12px;
   display:grid;place-items:center;
-  background:linear-gradient(135deg,var(--primary),#60a5fa);
+  background:linear-gradient(135deg,var(--primary),var(--primary-dark));
   font-weight:800;
-  color:#001018;
+  color:#ffffff;
 }
 .title{font-weight:800; letter-spacing:.2px}
 .subtitle{font-size:12px; color:var(--muted)}
 
-.top-actions{display:flex; gap:8px; align-items:center}
+/* ✅ Garante ações à direita */
+.top-actions{
+  display:flex;
+  gap:8px;
+  align-items:center;
+  margin-left:auto;
+}
 
+/* =======================
+   BUTTONS
+======================= */
 .btn{
-  border:1px solid var(--line);
-  background:#0f172a;
+  border:1px solid rgba(15,23,42,.12);
+  background:rgba(255,255,255,.85);
   color:var(--text);
   padding:10px 12px;
   border-radius:12px;
   cursor:pointer;
 }
-.btn:hover{border-color:#2b3a5f}
-.btn.primary{background:linear-gradient(135deg,var(--primary),#60a5fa); color:#001018; border:none; font-weight:800}
+.btn:hover{border-color:rgba(22,163,74,.35)}
+.btn.primary{
+  background:linear-gradient(135deg,var(--primary),var(--primary-dark));
+  color:#ffffff;
+  border:none;
+  font-weight:800;
+}
 .btn.ghost{background:transparent}
-.btn.danger{background:rgba(251,113,133,.12); border-color:rgba(251,113,133,.35); color:#fecdd3}
+.btn.danger{
+  background:rgba(220,38,38,.08);
+  border-color:rgba(220,38,38,.25);
+  color:#991b1b;
+}
 
+/* =======================
+   AUTH / CARDS / INPUTS
+======================= */
 .screen{
   display:grid;
   place-items:center;
   padding:22px;
   min-height:calc(100vh - 70px);
 }
+
 .card{
-  background:rgba(16,26,46,.95);
-  border:1px solid var(--line);
+  background:linear-gradient(180deg,#ffffff 0%, var(--card) 100%);
+  border:1px solid #d8eee3;
   border-radius:18px;
   padding:16px;
-  box-shadow:0 20px 60px rgba(0,0,0,.35);
+  box-shadow:0 12px 30px rgba(22,163,74,.08);
 }
+
 .auth-card{width:min(460px, 92vw)}
 .label{display:block; margin:12px 0 6px; color:var(--muted); font-size:13px}
+
 .input{
   width:100%;
   padding:12px;
   border-radius:12px;
-  border:1px solid var(--line);
-  background:#0b1324;
+  border:1px solid #d8eee3;
+  background:rgba(255,255,255,.9);
   color:var(--text);
   outline:none;
 }
-.input:focus{border-color:#3b82f6}
+.input:focus{border-color:var(--primary)}
 
+/* helpers */
 .row{display:flex; align-items:center}
 .gap{gap:10px}
 .between{justify-content:space-between}
 .mt{margin-top:12px}
 .big{font-size:20px; font-weight:900}
+.muted{color:var(--muted); font-size:13px; margin-top:10px}
+.mono{font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;}
+.full{width:100%;}
 
+/* =======================
+   LAYOUT
+======================= */
 .layout{
   display:grid;
   grid-template-columns:240px 1fr;
   min-height:calc(100vh - 70px);
 }
 
+/* Sidebar com verde */
 .sidebar{
   border-right:1px solid var(--line);
   padding:12px;
-  background:rgba(8,14,26,.55);
+  background:#e6f5ec;
 }
+
 .nav{
   width:100%;
   text-align:left;
@@ -109,75 +161,29 @@ body{
   cursor:pointer;
   margin-bottom:8px;
 }
-.nav:hover{background:rgba(148,163,184,.08)}
-.nav.active{border-color:#2b3a5f; background:rgba(56,189,248,.10)}
+
+.nav:hover{background:rgba(15,23,42,.04)}
+.nav.active{
+  border-color:rgba(22,163,74,.35);
+  background:rgba(22,163,74,.14);
+  color:var(--primary);
+}
 
 .content{padding:14px}
 .view-head{display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap}
 .grid2{display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-top:12px}
 .list{display:flex; flex-direction:column; gap:8px; margin-top:10px}
-.muted{color:var(--muted); font-size:13px; margin-top:10px}
 
-@media (max-width: 900px){
-  .layout{grid-template-columns:1fr}
-  .sidebar{display:flex; gap:8px; overflow:auto; white-space:nowrap}
-  .nav{min-width:140px}
-  .grid2{grid-template-columns:1fr}
-}
 .sep{
   border:none;
-  border-top:1px dashed var(--line);
+  border-top:1px dashed rgba(15,23,42,.18);
   margin:18px 0;
-  opacity:.6;
-}
-/* ===== Mobile POS: carrinho fixo em baixo ===== */
-@media (max-width: 900px){
-  #posCartCard{
-    position: fixed;
-    left: 10px;
-    right: 10px;
-    bottom: 96px; /* espaço para navegação inferior */
-    z-index: 998;
-
-    border-radius: 18px;
-    padding: 12px;
-  }
-
-  #posCart{
-    max-height: 22vh;
-    overflow-y: auto;
-  }
-
-  /* evita que o catálogo fique escondido atrás do carrinho */
-  #view-pos{
-    padding-bottom: 240px;
-  }
+  opacity:.8;
 }
 
-
-.backup-login{
-  margin-top:10px;
-}
-
-.backup-login h4{
-  margin:0 0 6px;
-  font-size:14px;
-  font-weight:700;
-  color:#c7d2fe;
-}
-
-.backup-login .muted{
-  font-size:12px;
-  line-height:1.4;
-}
-
-.full{
-  width:100%;
-}
-#cloudMsg{
-  min-height:18px;
-  opacity:.95;
-}
+/* =======================
+   TABLE / ROWITEMS
+======================= */
 .table{
   display:flex;
   flex-direction:column;
@@ -191,12 +197,13 @@ body{
   gap:10px;
   align-items:center;
   padding:10px;
-  border:1px solid var(--line);
+  border:1px solid #d8eee3;
   border-radius:14px;
-  background:rgba(148,163,184,.06);
+  background:rgba(255,255,255,.65);
 }
 
 .rowitem .muted{margin:0}
+
 .badge{
   display:inline-flex;
   gap:6px;
@@ -204,51 +211,44 @@ body{
   padding:4px 8px;
   border-radius:999px;
   font-size:12px;
-  border:1px solid var(--line);
-  background:rgba(16,26,46,.7);
+  border:1px solid #d8eee3;
+  background:rgba(255,255,255,.7);
 }
-.badge.low{border-color:rgba(251,113,133,.35); background:rgba(251,113,133,.10)}
+
+.badge.low{
+  border-color:rgba(220,38,38,.25);
+  background:rgba(220,38,38,.08);
+}
+
 .actions{display:flex; gap:8px; justify-content:flex-end}
 .iconbtn{padding:8px 10px; border-radius:12px}
-.rowitem.small{
-  grid-template-columns: 1.4fr .9fr auto;
-}
-.rowitem.ledger{
-  grid-template-columns: 1fr .8fr .9fr auto;
-}
-.mono{font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;}
-/* Garante que a área das views tem espaço e scroll */
-#screenMain{
-  height: 100vh;
-}
 
-#mainContent{
-  height: 100%;
-  overflow: auto;
-  padding: 16px;
-}
+.rowitem.small{grid-template-columns: 1.4fr .9fr auto;}
+.rowitem.ledger{grid-template-columns: 1fr .8fr .9fr auto;}
 
-/* Garante que as views aparecem quando ficam em block */
-.view{
-  display:none;
-}
-.view.show{
-  display:block;
-}
-/* ===== Mobile-first APP feel ===== */
+/* =======================
+   VIEWS
+======================= */
+.view{display:none;}
+.view.show{display:block;}
+
+/* =======================
+   MOBILE
+======================= */
 .mnav{display:none;}
 .sheet{display:none;}
+.mcartbar{display:none;}
 
 @media (max-width: 900px){
-  /* some a sidebar (não queremos desktop adaptado) */
+  /* Esconde sidebar no mobile */
   .sidebar{display:none !important;}
   .layout{grid-template-columns:1fr;}
-  .content{padding:12px; padding-bottom:86px;} /* espaço para bottom nav */
+  .content{padding:12px; padding-bottom:86px;}
 
-  /* topbar mais compacta */
+  /* topbar compacta */
   .topbar{padding:10px 12px;}
   .logo{width:36px;height:36px;border-radius:12px;}
-  .top-actions .btn{padding:8px 10px;}
+  .top-actions .btn{padding:8px 10px; font-size:12px;}
   .title{font-size:14px;}
   .subtitle{font-size:11px;}
 
@@ -261,12 +261,13 @@ body{
     left:10px; right:10px; bottom:10px;
     padding:10px;
     border-radius:18px;
-    border:1px solid var(--line);
-    background:rgba(16,26,46,.92);
+    border:1px solid #cfe8db;
+    background:rgba(255,255,255,.92);
     backdrop-filter: blur(10px);
     z-index:999;
-    box-shadow:0 20px 60px rgba(0,0,0,.45);
+    box-shadow:0 -8px 24px rgba(15,23,42,.12);
   }
+
   .mnav-btn{
     border:1px solid transparent;
     background:transparent;
@@ -276,9 +277,11 @@ body{
     cursor:pointer;
     font-size:12px;
   }
+
   .mnav-btn.active{
-    border-color:#2b3a5f;
-    background:rgba(56,189,248,.12);
+    border-color:rgba(22,163,74,.35);
+    background:rgba(22,163,74,.15);
+    color:var(--primary);
   }
 
   /* sheet (Mais) */
@@ -286,48 +289,59 @@ body{
     display:block;
     position:fixed;
     inset:0;
-    background:rgba(0,0,0,.35);
+    background:rgba(15,23,42,.25);
     z-index:1000;
     padding:14px;
   }
+
   .sheet-card{
     position:absolute;
     left:14px; right:14px; bottom:14px;
-    border:1px solid var(--line);
-    background:rgba(16,26,46,.96);
+    border:1px solid #cfe8db;
+    background:rgba(255,255,255,.96);
     border-radius:18px;
     padding:12px;
-    box-shadow:0 20px 60px rgba(0,0,0,.45);
+    box-shadow:0 20px 60px rgba(15,23,42,.18);
   }
+
   .sheet-head{display:flex; justify-content:space-between; align-items:center; margin-bottom:10px}
+
   .sheet-item{
     width:100%;
     text-align:left;
     padding:12px;
     border-radius:14px;
-    border:1px solid var(--line);
-    background:rgba(148,163,184,.06);
+    border:1px solid #d8eee3;
+    background:rgba(255,255,255,.7);
     color:var(--text);
     cursor:pointer;
     margin-bottom:8px;
   }
 
-  /* grids viram 1 coluna (cara de app) */
+  .sheet-item:hover{
+    border-color:rgba(22,163,74,.35);
+    background:rgba(22,163,74,.10);
+  }
+
+  /* grids -> 1 coluna */
   .grid2{grid-template-columns:1fr !important;}
+
   .rowitem{
     grid-template-columns:1fr auto !important;
     gap:10px;
   }
+
   .rowitem .actions{justify-content:flex-end;}
   .rowitem.small{grid-template-columns:1fr auto !important;}
   .rowitem.ledger{grid-template-columns:1fr auto !important;}
 
-  /* POS: catálogo em cards */
+  /* POS catálogo em cards */
   #posCatalog{
     display:grid;
     grid-template-columns:1fr 1fr;
     gap:10px;
   }
+
   #posCatalog .btn{
     padding:12px;
     border-radius:16px;
@@ -335,52 +349,31 @@ body{
     white-space:normal;
     line-height:1.2;
   }
-}
-/* =========================
-   MOBILE: Carrinho fixo em baixo (POS)
-========================= */
-.mcartbar{
-  display:none;
-}
 
-@media (max-width: 900px){
-  /* dá espaço para a barra fixa */
-  #view-pos{
-    padding-bottom: 92px; /* ajusta se precisares */
-  }
+  /* Carrinho bar fixo */
+  #view-pos{padding-bottom:92px;}
 
   .mcartbar{
     display:block;
     position:fixed;
-    left:0;
-    right:0;
-    bottom:0;
-    z-index: 999;
-    padding: 10px 12px;
-    background: rgba(11,18,32,.92);
-    border-top: 1px solid var(--line);
+    left:0; right:0; bottom:0;
+    z-index:999;
+    padding:10px 12px;
+    background:rgba(255,255,255,.94);
+    border-top:1px solid #cfe8db;
     backdrop-filter: blur(10px);
     padding-bottom: calc(10px + env(safe-area-inset-bottom));
   }
 
-  .mcartbar-inner{
-    display:flex;
-    gap:10px;
-    align-items:center;
-  }
+  .mcartbar-inner{display:flex; gap:10px; align-items:center;}
+  .mcartbar-total{flex:1; text-align:right; font-weight:900;}
 
-  .mcartbar-total{
-    flex:1;
-    text-align:right;
-    font-weight:900;
-  }
-
-  /* o carrinho vira "drawer" em baixo */
+  /* Carrinho drawer */
   #posCartCard{
     position: fixed;
     left: 12px;
     right: 12px;
-    bottom: calc(70px + env(safe-area-inset-bottom)); /* acima da barra */
+    bottom: calc(70px + env(safe-area-inset-bottom));
     z-index: 1000;
 
     max-height: 62vh;
@@ -388,12 +381,27 @@ body{
 
     transform: translateY(120%);
     transition: transform .18s ease;
-    box-shadow: 0 20px 60px rgba(0,0,0,.45);
+    box-shadow:0 20px 60px rgba(15,23,42,.18);
   }
 
-  #posCartCard.open{
-    transform: translateY(0);
-  }
+  #posCartCard.open{transform: translateY(0);}
+
+  #view-pos .grid2{grid-template-columns:1fr;}
+}
+
+/* Login nuvem */
+.backup-login{margin-top:10px;}
+.backup-login h4{
+  margin:0 0 6px;
+  font-size:14px;
+  font-weight:700;
+  color:#166534;
+}
+.backup-login .muted{
+  font-size:12px;
+  line-height:1.4;
+}
+#cloudMsg{min-height:18px; opacity:.95;}
 
   /* no mobile, o grid vira 1 coluna e o catálogo ocupa o ecrã */
   #view-pos .grid2{
