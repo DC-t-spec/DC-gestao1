@@ -3631,4 +3631,13 @@ alert("✅ Gestão Fácil---DC--- ");
       try {renderHome();} catch (e) {console.error("renderHome() falhou:", e);}
     });
   }
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker
+      .register("./sw.js")
+      .then(() => console.log("✅ Service Worker registado"))
+      .catch((err) => console.error("❌ Erro SW:", err));
+  });
+}
+
 })();
